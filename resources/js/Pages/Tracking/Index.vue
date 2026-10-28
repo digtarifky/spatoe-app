@@ -1,6 +1,20 @@
 <script setup>
-import { Head, router } from '@inertiajs/vue3';
 import { ref } from 'vue';
+import { Head, router } from '@inertiajs/vue3';
+import {
+    Search,
+    CheckCircle2,
+    Clock,
+    Sparkles,
+    Wind,
+    PackageCheck,
+    Truck,
+    MessageCircle,
+    ChevronRight,
+    ShieldCheck,
+    AlertCircle,
+    ShoppingBag
+} from 'lucide-vue-next';
 
 const props = defineProps({
     orders: {
@@ -13,204 +27,303 @@ const props = defineProps({
     },
 });
 
-const searchQuery = ref(props.filters?.search || '');
+const searchQuery = ref(props.filters.search || '');
+const isSearching = ref(false);
+
+// State tab foto per sepatu (format: { [itemId]: 'before' | 'after' })
+const activePhotoTabs = ref({});
+
+const setPhotoTab = (itemId, tab) => {
+    activePhotoTabs.value[itemId] = tab;
+};
 
 const handleSearch = () => {
+    if (!searchQuery.value.trim()) return;
+
     router.get(
         route('tracking.index'),
         { search: searchQuery.value },
-        { preserveState: true, replace: true }
+        {
+            preserveState: true,
+            preserveScroll: true,
+            onStart: () => { isSearching.value = true; },
+            onFinish: () => { isSearching.value = false; },
+        }
     );
+};
+
+const STEPS = [
+    { status: 'CHECKED_IN', label: 'Diterima', icon: PackageCheck },
+    { status: 'WASHING', label: 'Cuci', icon: Sparkles },
+    { status: 'DRYING', label: 'Pengeringan', icon: Wind },
+    { status: 'QC_INSPECTION', label: 'QC Check', icon: ShieldCheck },
+    { status: 'READY_DELIVERY', label: 'Siap Antar', icon: Truck },
+];
+
+const getStepIndex = (currentStatus) => {
+    if (currentStatus === 'DELIVERED') return STEPS.length;
+    const index = STEPS.findIndex((s) => s.status === currentStatus);
+    return index !== -1 ? index : 0;
+};
+
+const formatRupiah = (amount) => {
+    return new Intl.NumberFormat('id-ID', {
+        style: 'currency',
+        currency: 'IDR',
+        maximumFractionDigits: 0,
+    }).format(amount);
 };
 </script>
 
 <template>
-    <Head title="Pelacakan Pesanan - Spatoe" />
+    <Head title="Lacak Pesanan Sepatu - Spatoe" />
 
-    <div class="min-h-screen bg-slate-50 text-slate-800">
-        <!-- Header -->
-        <header class="border-b bg-white shadow-sm">
-            <div class="mx-auto flex max-w-7xl items-center justify-between px-4 py-4 sm:px-6 lg:px-8">
-                <div class="flex items-center space-x-3">
-                    <span class="text-2xl font-black tracking-tight text-amber-600">SPATOE</span>
-                    <span class="rounded-full bg-amber-100 px-2.5 py-0.5 text-xs font-semibold text-amber-800">Tracking</span>
+    <main class="min-h-screen bg-neutral-50 text-neutral-900 pb-16 font-sans antialiased">
+        <!-- Top Sticky Header -->
+        <header class="sticky top-0 z-30 bg-[#6B0B23] text-white shadow-md">
+            <div class="max-w-md mx-auto px-5 py-4 flex items-center justify-between">
+                <div>
+                    <h1 class="text-2xl font-black tracking-tight italic">spatoe</h1>
+                    <p class="text-[10px] tracking-widest uppercase opacity-80 font-medium">Tracking Portal</p>
                 </div>
-                <nav class="flex items-center space-x-4">
-                    <a :href="route('login')" class="text-sm font-medium text-slate-600 hover:text-slate-900">
-                        Staff Login
-                    </a>
-                </nav>
+                <a
+                    href="https://wa.me/6281234567890?text=Halo%20Admin%20Spatoe,%20mau%20tanya%20status%20sepatu"
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    class="flex items-center gap-1.5 bg-white/10 hover:bg-white/20 px-3 py-1.5 rounded-full text-xs font-semibold backdrop-blur-sm transition-all"
+                >
+                    <MessageCircle class="w-3.5 h-3.5 text-white" />
+                    <span>Bantuan CS</span>
+                </a>
             </div>
         </header>
 
-        <!-- Main Content -->
-        <main class="mx-auto max-w-4xl px-4 py-10 sm:px-6">
-            <!-- Search Hero Card -->
-            <div class="rounded-2xl bg-gradient-to-br from-amber-500 to-amber-600 p-8 text-white shadow-lg">
-                <h1 class="text-2xl font-bold sm:text-3xl">Lacak Status Cuci Sepatu</h1>
-                <p class="mt-2 text-sm text-amber-100 sm:text-base">
-                    Masukkan nomor WhatsApp atau kode pesanan untuk melihat progres pencucian dan hasil inspeksi QC.
-                </p>
-
-                <form @submit.prevent="handleSearch" class="mt-6 flex flex-col gap-3 sm:flex-row">
-                    <div class="relative flex-1">
-                        <input
-                            v-model="searchQuery"
-                            type="text"
-                            placeholder="Contoh: 081234567890 atau ORD-20261028-001"
-                            class="w-full rounded-xl border-0 bg-white px-4 py-3.5 text-slate-800 placeholder-slate-400 shadow-sm focus:ring-2 focus:ring-amber-300"
-                        />
-                    </div>
+        <div class="max-w-md mx-auto px-4 mt-5 space-y-5">
+            <!-- Search Input Box -->
+            <section class="bg-white rounded-2xl p-4 shadow-sm border border-neutral-100">
+                <form @submit.prevent="handleSearch" class="relative flex items-center">
+                    <Search class="absolute left-3.5 w-4 h-4 text-neutral-400" />
+                    <input
+                        v-model="searchQuery"
+                        type="text"
+                        placeholder="Nomor WA / Kode Nota (e.g., SPT-202610-001)"
+                        class="w-full bg-neutral-50 border border-neutral-200 rounded-xl pl-10 pr-24 py-2.5 text-xs text-neutral-800 placeholder-neutral-400 focus:outline-none focus:ring-2 focus:ring-[#6B0B23]/20 focus:border-[#6B0B23] transition-all"
+                    />
                     <button
                         type="submit"
-                        class="inline-flex items-center justify-center rounded-xl bg-slate-900 px-6 py-3.5 text-sm font-semibold text-white transition hover:bg-slate-800"
+                        :disabled="isSearching"
+                        class="absolute right-1.5 bg-[#6B0B23] text-white px-4 py-1.5 rounded-lg text-xs font-semibold hover:bg-[#58091c] disabled:opacity-50 transition-colors"
                     >
-                        Lacak Pesanan
+                        {{ isSearching ? 'Mencari...' : 'Lacak' }}
                     </button>
                 </form>
-            </div>
+            </section>
 
-            <!-- Search Results -->
-            <div class="mt-8 space-y-6">
-                <!-- If No Search Given -->
-                <div v-if="!filters.search" class="rounded-2xl border border-dashed border-slate-300 bg-white p-12 text-center">
-                    <div class="mx-auto flex h-14 w-14 items-center justify-center rounded-full bg-amber-50 text-amber-600">
-                        <svg class="h-6 w-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
-                        </svg>
-                    </div>
-                    <h3 class="mt-4 text-base font-semibold text-slate-900">Belum Ada Pencarian</h3>
-                    <p class="mt-1 text-sm text-slate-500">Ketik nomor HP terdaftar atau nomor nota untuk melihat status sepatu.</p>
-                </div>
-
-                <!-- If Search Given but Empty -->
-                <div v-else-if="orders.length === 0" class="rounded-2xl border border-slate-200 bg-white p-12 text-center">
-                    <div class="mx-auto flex h-14 w-14 items-center justify-center rounded-full bg-red-50 text-red-500">
-                        <svg class="h-6 w-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
-                        </svg>
-                    </div>
-                    <h3 class="mt-4 text-base font-semibold text-slate-900">Pesanan Tidak Ditemukan</h3>
-                    <p class="mt-1 text-sm text-slate-500">
-                        Tidak ada pesanan yang cocok dengan "{{ filters.search }}". Pastikan nomor HP atau nomor nota sudah sesuai.
-                    </p>
-                </div>
-
-                <!-- Order Cards -->
-                <div
+            <!-- Tampilan Jika Ada Hasil Pencarian -->
+            <div v-if="orders.length > 0" class="space-y-6">
+                <article
                     v-for="order in orders"
                     :key="order.id"
-                    class="overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm"
+                    class="space-y-4"
                 >
-                    <!-- Order Header -->
-                    <div class="border-b bg-slate-50/75 px-6 py-4">
-                        <div class="flex flex-wrap items-center justify-between gap-2">
+                    <!-- Kartu Ringkasan Nota -->
+                    <div class="bg-white rounded-2xl p-5 shadow-sm border border-neutral-100 space-y-3">
+                        <div class="flex items-center justify-between border-b border-neutral-100 pb-3">
                             <div>
-                                <span class="text-xs font-semibold uppercase tracking-wider text-slate-400">Nomor Nota</span>
-                                <h3 class="text-lg font-bold text-slate-900">{{ order.order_code }}</h3>
+                                <span class="text-[10px] font-bold text-neutral-400 uppercase tracking-wider">Kode Nota</span>
+                                <h2 class="text-base font-extrabold text-neutral-900">{{ order.order_code }}</h2>
                             </div>
-                            <div class="flex items-center gap-2">
+                            <div class="text-right">
                                 <span
-                                    class="rounded-full px-3 py-1 text-xs font-semibold"
-                                    :class="order.payment_status === 'PAID' ? 'bg-emerald-100 text-emerald-800' : 'bg-amber-100 text-amber-800'"
+                                    :class="[
+                                        'inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[11px] font-bold',
+                                        order.payment_status === 'PAID'
+                                            ? 'bg-emerald-50 text-emerald-700 border border-emerald-200'
+                                            : 'bg-amber-50 text-amber-700 border border-amber-200'
+                                    ]"
                                 >
-                                    {{ order.payment_status }}
+                                    <CheckCircle2 class="w-3 h-3" />
+                                    {{ order.payment_status === 'PAID' ? 'Lunas' : 'Belum Lunas' }}
                                 </span>
-                                <span
-                                    v-if="order.is_qc_passed"
-                                    class="rounded-full bg-sky-100 px-3 py-1 text-xs font-semibold text-sky-800"
-                                >
-                                    QC PASSED
-                                </span>
-                            </div>
-                        </div>
-
-                        <div class="mt-3 flex flex-wrap gap-x-6 gap-y-1 text-xs text-slate-500">
-                            <div>Pemilik: <span class="font-medium text-slate-700">{{ order.customer?.full_name }}</span></div>
-                            <div>Tanggal Masuk: <span class="font-medium text-slate-700">{{ order.created_at }}</span></div>
-                            <div>Metode: <span class="font-medium text-slate-700">{{ order.payment_method }}</span></div>
-                        </div>
-                    </div>
-
-                    <!-- Items List -->
-                    <div class="divide-y divide-slate-100 px-6 py-4">
-                        <div
-                            v-for="item in order.items"
-                            :key="item.id"
-                            class="py-4 first:pt-0 last:pb-0"
-                        >
-                            <div class="flex flex-wrap items-start justify-between gap-3">
-                                <div>
-                                    <div class="flex items-center gap-2">
-                                        <span class="rounded bg-slate-100 px-2 py-0.5 font-mono text-xs font-bold text-slate-700">
-                                            {{ item.item_tag_code }}
-                                        </span>
-                                        <h4 class="text-base font-semibold text-slate-900">{{ item.shoe_brand_model }}</h4>
-                                    </div>
-                                    <p class="mt-1 text-xs text-slate-500">
-                                        Layanan: <span class="font-medium text-slate-700">{{ item.service?.service_name }}</span> |
-                                        Bahan: <span class="font-medium text-slate-700">{{ item.shoe_material }}</span>
-                                        <span v-if="item.shoe_color"> | Warna: {{ item.shoe_color }}</span>
-                                    </p>
-                                </div>
-                                <span class="rounded-lg bg-amber-50 px-2.5 py-1 text-xs font-bold text-amber-700">
-                                    {{ item.status }}
-                                </span>
-                            </div>
-
-                            <!-- QC Status Box -->
-                            <div v-if="item.qc" class="mt-3 rounded-xl bg-slate-50 p-3 text-xs">
-                                <div class="flex items-center justify-between">
-                                    <span class="font-semibold text-slate-700">Inspeksi Quality Control (QC):</span>
-                                    <span
-                                        class="font-bold"
-                                        :class="item.qc.qc_passed ? 'text-emerald-600' : 'text-amber-600'"
-                                    >
-                                        {{ item.qc.qc_passed ? 'Lulus QC' : 'Proses QC' }}
-                                    </span>
-                                </div>
-                                <p v-if="item.qc.inspected_at" class="mt-0.5 text-slate-400">
-                                    Waktu inspeksi: {{ item.qc.inspected_at }}
+                                <p class="text-xs font-bold text-neutral-800 mt-1">
+                                    {{ formatRupiah(order.final_amount) }}
                                 </p>
                             </div>
+                        </div>
 
-                            <!-- Photos Section (Before / After) -->
-                            <div
-                                v-if="(item.photos_before && item.photos_before.length > 0) || (item.photos_after && item.photos_after.length > 0)"
-                                class="mt-4 grid grid-cols-2 gap-4"
+                        <div class="text-xs text-neutral-600 space-y-1">
+                            <p class="font-bold text-neutral-800">{{ order.customer_name }}</p>
+                            <p class="text-neutral-500 line-clamp-1">{{ order.delivery_address }}</p>
+                            <p class="text-[10px] text-neutral-400">Diterima: {{ order.created_at }}</p>
+                        </div>
+                    </div>
+
+                    <!-- Kartu Item Per Pasang Sepatu -->
+                    <div
+                        v-for="item in order.items"
+                        :key="item.id"
+                        class="bg-white rounded-2xl p-5 shadow-sm border border-neutral-100 space-y-5"
+                    >
+                        <div class="flex items-start justify-between">
+                            <div>
+                                <span class="inline-block bg-neutral-100 text-neutral-600 font-mono text-[10px] font-bold px-2 py-0.5 rounded mb-1">
+                                    {{ item.item_tag_code }}
+                                </span>
+                                <h3 class="text-sm font-bold text-neutral-900">{{ item.shoe_brand_model }}</h3>
+                                <p class="text-xs text-neutral-500">
+                                    {{ item.shoe_material }} • <span class="text-[#6B0B23] font-medium">{{ item.service_name }}</span>
+                                </p>
+                            </div>
+                            <span
+                                v-if="item.shelf_number"
+                                class="bg-neutral-50 border border-neutral-200 text-neutral-600 text-[10px] font-medium px-2 py-1 rounded-lg"
                             >
-                                <!-- Before Photos -->
-                                <div v-if="item.photos_before && item.photos_before.length > 0">
-                                    <span class="text-xs font-semibold text-slate-500">Foto Sebelum (Before):</span>
-                                    <div class="mt-1 flex gap-2 overflow-x-auto">
-                                        <img
-                                            v-for="photo in item.photos_before"
-                                            :key="photo.id"
-                                            :src="photo.url"
-                                            alt="Foto Before"
-                                            class="h-24 w-24 rounded-lg object-cover border"
-                                        />
-                                    </div>
+                                Rak: {{ item.shelf_number }}
+                            </span>
+                        </div>
+
+                        <!-- Stepper Progress Bar -->
+                        <div class="py-2">
+                            <div class="relative flex justify-between items-center">
+                                <div class="absolute top-4 left-3 right-3 h-0.5 bg-neutral-200 -z-0">
+                                    <div
+                                        class="h-full bg-[#6B0B23] transition-all duration-500"
+                                        :style="{ width: `${(getStepIndex(item.status) / (STEPS.length - 1)) * 100}%` }"
+                                    />
                                 </div>
 
-                                <!-- After Photos -->
-                                <div v-if="item.photos_after && item.photos_after.length > 0">
-                                    <span class="text-xs font-semibold text-slate-500">Foto Sesudah (After):</span>
-                                    <div class="mt-1 flex gap-2 overflow-x-auto">
-                                        <img
-                                            v-for="photo in item.photos_after"
-                                            :key="photo.id"
-                                            :src="photo.url"
-                                            alt="Foto After"
-                                            class="h-24 w-24 rounded-lg object-cover border"
-                                        />
+                                <div
+                                    v-for="(step, idx) in STEPS"
+                                    :key="step.status"
+                                    class="flex flex-col items-center z-10"
+                                >
+                                    <div
+                                        :class="[
+                                            'w-8 h-8 rounded-full flex items-center justify-center transition-all',
+                                            idx < getStepIndex(item.status)
+                                                ? 'bg-[#6B0B23] text-white'
+                                                : idx === getStepIndex(item.status)
+                                                ? 'bg-white border-2 border-[#6B0B23] text-[#6B0B23] ring-4 ring-[#6B0B23]/10'
+                                                : 'bg-neutral-100 border border-neutral-200 text-neutral-400'
+                                        ]"
+                                    >
+                                        <component :is="step.icon" class="w-3.5 h-3.5" />
                                     </div>
+                                    <span
+                                        :class="[
+                                            'text-[10px] mt-2 font-medium tracking-tight text-center',
+                                            idx === getStepIndex(item.status)
+                                                ? 'text-[#6B0B23] font-bold'
+                                                : idx < getStepIndex(item.status)
+                                                ? 'text-neutral-800'
+                                                : 'text-neutral-400'
+                                        ]"
+                                    >
+                                        {{ step.label }}
+                                    </span>
                                 </div>
                             </div>
                         </div>
+
+                        <!-- Estimasi Waktu Selesai -->
+                        <div class="bg-[#6B0B23]/5 rounded-xl p-3 flex items-center justify-between text-xs">
+                            <div class="flex items-center gap-2">
+                                <Clock class="w-4 h-4 text-[#6B0B23]" />
+                                <span class="text-neutral-600">Estimasi Selesai:</span>
+                            </div>
+                            <span class="font-bold text-[#6B0B23]">{{ item.estimated_completion }}</span>
+                        </div>
+
+                        <!-- Dokumentasi Foto Before & After -->
+                        <div v-if="item.before_photo_url || item.after_photo_url" class="space-y-2">
+                            <div class="flex items-center justify-between">
+                                <p class="text-xs font-bold text-neutral-800">Dokumentasi Sepatu</p>
+                                <div class="flex bg-neutral-100 p-0.5 rounded-lg text-[11px] font-semibold">
+                                    <button
+                                        type="button"
+                                        @click="setPhotoTab(item.id, 'before')"
+                                        :class="[
+                                            'px-3 py-1 rounded-md transition-all',
+                                            (activePhotoTabs[item.id] || 'before') === 'before'
+                                                ? 'bg-white text-neutral-900 shadow-xs'
+                                                : 'text-neutral-500 hover:text-neutral-800'
+                                        ]"
+                                    >
+                                        Before
+                                    </button>
+                                    <button
+                                        type="button"
+                                        @click="setPhotoTab(item.id, 'after')"
+                                        :class="[
+                                            'px-3 py-1 rounded-md transition-all',
+                                            activePhotoTabs[item.id] === 'after'
+                                                ? 'bg-white text-[#6B0B23] shadow-xs'
+                                                : 'text-neutral-500 hover:text-neutral-800'
+                                        ]"
+                                    >
+                                        After
+                                    </button>
+                                </div>
+                            </div>
+
+                            <div class="relative aspect-video rounded-xl overflow-hidden bg-neutral-100 border border-neutral-200">
+                                <img
+                                    :src="(activePhotoTabs[item.id] || 'before') === 'before'
+                                        ? (item.before_photo_url || item.after_photo_url)
+                                        : (item.after_photo_url || item.before_photo_url)"
+                                    alt="Dokumentasi Sepatu"
+                                    class="w-full h-full object-cover"
+                                />
+                                <span class="absolute bottom-2 left-2 bg-black/60 backdrop-blur-xs text-white text-[10px] font-medium px-2 py-0.5 rounded">
+                                    {{ (activePhotoTabs[item.id] || 'before') === 'before' ? 'Kondisi Awal Check-In' : 'Hasil Setelah Treatment & QC' }}
+                                </span>
+                            </div>
+                        </div>
                     </div>
+                </article>
+
+                <!-- Tombol Konfirmasi Cepat CS -->
+                <div class="bg-neutral-900 text-white rounded-2xl p-4 flex items-center justify-between shadow-sm">
+                    <div class="space-y-0.5">
+                        <p class="text-xs font-bold">Ada kendala atau instruksi khusus?</p>
+                        <p class="text-[11px] text-neutral-400">Hubungi teknisi bengkel Spatoe langsung</p>
+                    </div>
+                    <a
+                        :href="`https://wa.me/6281234567890?text=Halo%20Spatoe,%20saya%20ingin%20tanya%20pesanan%20${orders[0]?.order_code}`"
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        class="bg-[#6B0B23] hover:bg-[#830e2b] p-2.5 rounded-xl transition-colors"
+                    >
+                        <ChevronRight class="w-4 h-4 text-white" />
+                    </a>
                 </div>
             </div>
-        </main>
-    </div>
+
+            <!-- Kondisi: Pencarian Dilakukan Tapi Tidak Ditemukan -->
+            <div
+                v-else-if="filters.search"
+                class="text-center py-16 bg-white rounded-2xl border border-neutral-100 p-6 space-y-2"
+            >
+                <AlertCircle class="w-10 h-10 text-amber-500 mx-auto" />
+                <h3 class="text-sm font-bold text-neutral-800">Pesanan Tidak Ditemukan</h3>
+                <p class="text-xs text-neutral-500 max-w-xs mx-auto">
+                    Nomor WhatsApp atau kode nota "{{ filters.search }}" belum terdaftar di sistem kami.
+                </p>
+            </div>
+
+            <!-- Kondisi Default: Belum Melakukan Pencarian -->
+            <div
+                v-else
+                class="text-center py-16 bg-white rounded-2xl border border-neutral-100 p-6 space-y-3"
+            >
+                <div class="w-12 h-12 rounded-full bg-[#6B0B23]/10 text-[#6B0B23] flex items-center justify-center mx-auto">
+                    <ShoppingBag class="w-6 h-6" />
+                </div>
+                <h3 class="text-sm font-bold text-neutral-800">Pantau Perawatan Sepatumu</h3>
+                <p class="text-xs text-neutral-500 max-w-xs mx-auto leading-relaxed">
+                    Masukkan nomor WhatsApp atau kode nota yang tertera pada pesan konfirmasi untuk melihat progres cuci secara realtime.
+                </p>
+            </div>
+        </div>
+    </main>
 </template>

@@ -39,6 +39,12 @@ const showingNavigationDropdown = ref(false);
                                 >
                                     Dashboard
                                 </NavLink>
+                                <NavLink
+                                    :href="route('workshop.index')"
+                                    :active="route().current('workshop.*')"
+                                >
+                                    Workshop Floor
+                                </NavLink>
                             </div>
                         </div>
 
@@ -145,6 +151,12 @@ const showingNavigationDropdown = ref(false);
                             :active="route().current('dashboard')"
                         >
                             Dashboard
+                        </ResponsiveNavLink>
+                        <ResponsiveNavLink
+                            :href="route('workshop.index')"
+                            :active="route().current('workshop.*')"
+                        >
+                            Workshop Floor
                         </ResponsiveNavLink>
                     </div>
 
