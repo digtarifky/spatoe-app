@@ -221,5 +221,84 @@ class DatabaseSeeder extends Seeder
                 ])
             );
         }
+
+        // 6. Data Sample Pelanggan Single Item untuk Pengujian Public Tracking
+        $customerRian = Customer::updateOrCreate(
+            ['phone_number' => '081298765432'],
+            [
+                'full_name' => 'Rian Pratama',
+                'default_address' => 'Kost Griya Amarta No. 4, Rungkut Madya, Surabaya',
+                'campus_cluster' => 'UPN',
+            ]
+        );
+
+        $orderRian = Order::updateOrCreate(
+            ['order_code' => 'SPT-202610-002'],
+            [
+                'customer_id' => $customerRian->id,
+                'total_amount' => 35000,
+                'discount_total' => 0,
+                'final_amount' => 35000,
+                'payment_status' => 'PAID',
+                'payment_method' => 'QRIS',
+                'pickup_address' => 'Kost Griya Amarta No. 4, Rungkut Madya, Surabaya',
+                'delivery_address' => 'Kost Griya Amarta No. 4, Rungkut Madya, Surabaya',
+                'pickup_time' => now()->subHours(4),
+            ]
+        );
+
+        OrderItem::updateOrCreate(
+            ['item_tag_code' => 'TAG-006'],
+            [
+                'order_id' => $orderRian->id,
+                'service_id' => $deepClean?->id,
+                'technician_id' => $technician?->id,
+                'shoe_brand_model' => 'Vans Old Skool Classic Black White',
+                'shoe_material' => 'Canvas / Suede',
+                'shoe_color' => 'Black/White',
+                'storage_shelf_number' => 'B-01',
+                'status' => 'WASHING',
+                'estimated_completion' => now()->addHours(24),
+            ]
+        );
+
+        $customerNabila = Customer::updateOrCreate(
+            ['phone_number' => '085712349988'],
+            [
+                'full_name' => 'Nabila Putri',
+                'default_address' => 'Kost Putri Melati No. 12, Gebang Putih, Sukolilo, Surabaya',
+                'campus_cluster' => 'ITS',
+            ]
+        );
+
+        $orderNabila = Order::updateOrCreate(
+            ['order_code' => 'SPT-202610-003'],
+            [
+                'customer_id' => $customerNabila->id,
+                'total_amount' => 25000,
+                'discount_total' => 0,
+                'final_amount' => 25000,
+                'payment_status' => 'PAID',
+                'payment_method' => 'COD',
+                'pickup_address' => 'Kost Putri Melati No. 12, Gebang Putih, Sukolilo, Surabaya',
+                'delivery_address' => 'Kost Putri Melati No. 12, Gebang Putih, Sukolilo, Surabaya',
+                'pickup_time' => now()->subHours(2),
+            ]
+        );
+
+        OrderItem::updateOrCreate(
+            ['item_tag_code' => 'TAG-007'],
+            [
+                'order_id' => $orderNabila->id,
+                'service_id' => $fastClean?->id,
+                'technician_id' => $technician?->id,
+                'shoe_brand_model' => 'Converse Chuck 70 High Parchment',
+                'shoe_material' => 'Canvas',
+                'shoe_color' => 'Parchment/Egret',
+                'storage_shelf_number' => 'A-04',
+                'status' => 'DRYING',
+                'estimated_completion' => now()->addHours(12),
+            ]
+        );
     }
 }
