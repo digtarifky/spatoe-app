@@ -2,7 +2,9 @@
 import { ref, computed } from 'vue';
 import { Head, router, Link } from '@inertiajs/vue3';
 import AuthenticatedLayout from '@/Layouts/AuthenticatedLayout.vue';
+import ThermalPrintModal from '@/Components/ThermalPrintModal.vue';
 import {
+    Printer,
     Plus,
     Sparkles,
     Wind,
@@ -56,6 +58,35 @@ const searchQuery = ref(props.filters.search || '');
 const updatingItemId = ref(null);
 const selectedDefectItem = ref(null);
 const selectedQcItem = ref(null);
+const printModalOpen = ref(false);
+const printOrder = ref(null);
+
+const openPrintModal = (item) => {
+    printOrder.value = {
+        order_code: item.order_code,
+        created_at: item.order?.created_at || 'Hari ini',
+        final_amount: item.service?.base_price || 0,
+        total_amount: item.service?.base_price || 0,
+        payment_method: 'QRIS',
+        payment_status: 'PAID',
+        customer: {
+            full_name: item.customer_name || 'Pelanggan Workshop',
+            phone_number: item.customer_phone || '-',
+        },
+        items: [
+            {
+                item_tag_code: item.item_tag_code,
+                storage_shelf_number: item.storage_shelf_number,
+                shoe_brand_model: item.shoe_brand_model,
+                shoe_material: item.shoe_material,
+                shoe_color: item.shoe_color,
+                defect_notes: item.defect_notes,
+                service: item.service,
+            },
+        ],
+    };
+    printModalOpen.value = true;
+};
 
 const COLUMNS = [
     {
@@ -327,17 +358,30 @@ const getSlaBadgeClass = (slaStatus) => {
                                         </span>
                                     </div>
 
-                                    <!-- Defect Alert Button (if any) -->
-                                    <button
-                                        v-if="item.defect_notes"
-                                        type="button"
-                                        @click="openDefectModal(item)"
-                                        class="flex items-center gap-1 rounded bg-amber-50 border border-amber-200 px-1.5 py-0.5 text-[10px] font-bold text-amber-700 hover:bg-amber-100"
-                                        title="Ada catatan noda/cacat awal"
-                                    >
-                                        <AlertTriangle class="h-3 w-3 text-amber-600" />
-                                        <span>Defect</span>
-                                    </button>
+                                    <div class="flex items-center gap-1">
+                                        <!-- Thermal Print Button -->
+                                        <button
+                                            type="button"
+                                            @click="openPrintModal(item)"
+                                            class="flex items-center gap-1 rounded bg-neutral-100 border border-neutral-200 px-1.5 py-0.5 text-[10px] font-semibold text-neutral-600 hover:text-neutral-900 hover:bg-neutral-200 transition-colors"
+                                            title="Cetak Struk Termal & Label Tag"
+                                        >
+                                            <Printer class="h-3 w-3 text-neutral-600" />
+                                            <span class="hidden sm:inline">Cetak</span>
+                                        </button>
+
+                                        <!-- Defect Alert Button (if any) -->
+                                        <button
+                                            v-if="item.defect_notes"
+                                            type="button"
+                                            @click="openDefectModal(item)"
+                                            class="flex items-center gap-1 rounded bg-amber-50 border border-amber-200 px-1.5 py-0.5 text-[10px] font-bold text-amber-700 hover:bg-amber-100"
+                                            title="Ada catatan noda/cacat awal"
+                                        >
+                                            <AlertTriangle class="h-3 w-3 text-amber-600" />
+                                            <span>Defect</span>
+                                        </button>
+                                    </div>
                                 </div>
 
                                 <!-- Shoe Model & Service Badge -->
@@ -584,5 +628,12 @@ const getSlaBadgeClass = (slaStatus) => {
                 </div>
             </div>
         </div>
+
+        <!-- Modal Cetak Thermal & Label Tag Rak -->
+        <ThermalPrintModal
+            :is-open="printModalOpen"
+            :order="printOrder"
+            @close="printModalOpen = false"
+        />
     </AuthenticatedLayout>
 </template>
