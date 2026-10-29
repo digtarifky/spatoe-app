@@ -53,6 +53,7 @@ const createEmptyItem = () => ({
     storage_shelf_number: '',
     defect_notes: '',
     before_photo: null,
+    photo_preview: null,
 });
 
 const form = useForm({
@@ -65,22 +66,101 @@ const form = useForm({
     items: [createEmptyItem()],
 });
 
-// Photo Previews
+// Photo Previews & Compression State
 const photoPreviews = ref({});
+const isCompressingPhoto = ref({});
 
-const handlePhotoChange = (index, event) => {
+/**
+ * Kompresi dan konversi file gambar ke format WebP di browser menggunakan HTML5 Canvas API
+ * @param {File} file
+ * @param {number} maxWidth
+ * @param {number} quality
+ * @returns {Promise<File>}
+ */
+const compressImageToWebP = (file, maxWidth = 1280, quality = 0.8) => {
+    return new Promise((resolve, reject) => {
+        const reader = new FileReader();
+        reader.readAsDataURL(file);
+        reader.onload = (readerEvent) => {
+            const img = new Image();
+            img.src = readerEvent.target.result;
+            img.onload = () => {
+                let targetWidth = img.width;
+                let targetHeight = img.height;
+
+                if (targetWidth > maxWidth) {
+                    const scaleFactor = maxWidth / targetWidth;
+                    targetWidth = maxWidth;
+                    targetHeight = Math.round(img.height * scaleFactor);
+                }
+
+                const canvas = document.createElement('canvas');
+                canvas.width = targetWidth;
+                canvas.height = targetHeight;
+
+                const ctx = canvas.getContext('2d');
+                ctx.drawImage(img, 0, 0, targetWidth, targetHeight);
+
+                canvas.toBlob(
+                    (blob) => {
+                        if (!blob) {
+                            reject(new Error('Gagal mengompres gambar ke format WebP.'));
+                            return;
+                        }
+
+                        const baseName = file.name ? file.name.replace(/\.[^/.]+$/, '') : `photo_${Date.now()}`;
+                        const webpFile = new File([blob], `${baseName}.webp`, {
+                            type: 'image/webp',
+                            lastModified: Date.now(),
+                        });
+
+                        resolve(webpFile);
+                    },
+                    'image/webp',
+                    quality
+                );
+            };
+            img.onerror = (err) => reject(err);
+        };
+        reader.onerror = (err) => reject(err);
+    });
+};
+
+const onFileSelected = async (event, index) => {
     const file = event.target.files?.[0];
-    if (file) {
+    if (!file) return;
+
+    isCompressingPhoto.value[index] = true;
+
+    try {
+        const webpFile = await compressImageToWebP(file, 1280, 0.8);
+        form.items[index].before_photo = webpFile;
+
+        if (photoPreviews.value[index]) {
+            URL.revokeObjectURL(photoPreviews.value[index]);
+        }
+        const previewUrl = URL.createObjectURL(webpFile);
+        photoPreviews.value[index] = previewUrl;
+        form.items[index].photo_preview = previewUrl;
+    } catch (error) {
+        console.error('Gagal mengompres gambar ke WebP:', error);
+        // Fallback ke file asli jika browser tidak mendukung konversi canvas webp
         form.items[index].before_photo = file;
         if (photoPreviews.value[index]) {
             URL.revokeObjectURL(photoPreviews.value[index]);
         }
-        photoPreviews.value[index] = URL.createObjectURL(file);
+        const fallbackUrl = URL.createObjectURL(file);
+        photoPreviews.value[index] = fallbackUrl;
+        form.items[index].photo_preview = fallbackUrl;
+    } finally {
+        isCompressingPhoto.value[index] = false;
+        event.target.value = '';
     }
 };
 
 const removePhoto = (index) => {
     form.items[index].before_photo = null;
+    form.items[index].photo_preview = null;
     if (photoPreviews.value[index]) {
         URL.revokeObjectURL(photoPreviews.value[index]);
         delete photoPreviews.value[index];
@@ -161,10 +241,21 @@ const formatRupiah = (amount) => {
 };
 
 const submitCheckIn = () => {
-    form.post(route('workshop.checkin.store'), {
-        forceFormData: true,
-        preserveScroll: true,
-    });
+    form
+        .transform((data) => ({
+            ...data,
+            items: data.items.map((item) => {
+                const { photo_preview, ...rest } = item;
+                return {
+                    ...rest,
+                    before_photo: item.before_photo instanceof File ? item.before_photo : null,
+                };
+            }),
+        }))
+        .post(route('workshop.checkin.store'), {
+            forceFormData: true,
+            preserveScroll: true,
+        });
 };
 
 onUnmounted(() => {
@@ -505,25 +596,39 @@ onUnmounted(() => {
                                                     <X class="w-4 h-4" />
                                                 </button>
                                             </div>
-                                            <span class="absolute bottom-2 left-2 bg-black/60 text-white text-[10px] px-2 py-0.5 rounded font-mono">
-                                                Foto Siap
+                                            <span class="absolute bottom-2 left-2 bg-black/75 backdrop-blur-xs text-white text-[10px] px-2 py-0.5 rounded font-mono flex items-center gap-1">
+                                                <Sparkles class="w-2.5 h-2.5 text-emerald-400" />
+                                                WebP Siap <span v-if="form.items[index].before_photo?.size">({{ Math.round(form.items[index].before_photo.size / 1024) }} KB)</span>
                                             </span>
                                         </div>
 
                                         <!-- Upload / Capture Button -->
                                         <label
                                             v-else
-                                            class="flex flex-col items-center justify-center border-2 border-dashed border-neutral-300 hover:border-[#6B0B23] rounded-xl p-4 text-center cursor-pointer bg-white transition-colors aspect-4/3 aspect-[4/3]"
+                                            :class="[
+                                                'flex flex-col items-center justify-center border-2 border-dashed rounded-xl p-4 text-center cursor-pointer bg-white transition-colors aspect-4/3 aspect-[4/3] relative',
+                                                isCompressingPhoto[index]
+                                                    ? 'border-[#6B0B23] bg-[#6B0B23]/5 pointer-events-none'
+                                                    : 'border-neutral-300 hover:border-[#6B0B23]'
+                                            ]"
                                         >
-                                            <Camera class="w-6 h-6 text-neutral-400 mb-1" />
-                                            <span class="text-xs font-bold text-neutral-700">Buka Kamera / Foto</span>
-                                            <span class="text-[10px] text-neutral-400 mt-0.5">JPG / PNG maks 5MB</span>
+                                            <div v-if="isCompressingPhoto[index]" class="flex flex-col items-center justify-center gap-1.5 text-[#6B0B23]">
+                                                <Loader2 class="w-6 h-6 animate-spin text-[#6B0B23]" />
+                                                <span class="text-xs font-bold">Mengompres WebP...</span>
+                                                <span class="text-[10px] text-neutral-500">Maks 1280px & 80% Kualitas</span>
+                                            </div>
+                                            <div v-else class="flex flex-col items-center justify-center">
+                                                <Camera class="w-6 h-6 text-neutral-400 mb-1" />
+                                                <span class="text-xs font-bold text-neutral-700">Buka Kamera / Foto</span>
+                                                <span class="text-[10px] text-neutral-400 mt-0.5">Kompresi WebP Otomatis</span>
+                                            </div>
                                             <input
                                                 type="file"
                                                 accept="image/*"
                                                 capture="environment"
                                                 class="hidden"
-                                                @change="handlePhotoChange(index, $event)"
+                                                :disabled="isCompressingPhoto[index]"
+                                                @change="onFileSelected($event, index)"
                                             />
                                         </label>
                                         <p v-if="form.errors[`items.${index}.before_photo`]" class="text-xs text-rose-600 mt-1 font-medium">

@@ -37,7 +37,7 @@ class WorkshopCheckInRequest extends FormRequest
             'items.*.service_id' => ['required', 'integer', 'exists:services,id'],
             'items.*.storage_shelf_number' => ['nullable', 'string', 'max:20'],
             'items.*.defect_notes' => ['nullable', 'string', 'max:1000'],
-            'items.*.before_photo' => ['nullable', 'image', 'max:5120'], // Max 5MB
+            'items.*.before_photo' => ['nullable', 'file', 'mimes:webp,jpg,jpeg,png', 'max:2048'],
         ];
     }
 
@@ -58,8 +58,8 @@ class WorkshopCheckInRequest extends FormRequest
             'items.*.shoe_material.required' => 'Jenis material sepatu wajib dipilih.',
             'items.*.service_id.required' => 'Paket layanan wajib dipilih.',
             'items.*.service_id.exists' => 'Layanan yang dipilih tidak valid.',
-            'items.*.before_photo.image' => 'File foto kondisi awal harus berupa gambar (jpg/png/webp).',
-            'items.*.before_photo.max' => 'Ukuran foto maksimal 5MB.',
+            'items.*.before_photo.mimes' => 'Format foto harus berupa webp, jpg, jpeg, atau png.',
+            'items.*.before_photo.max' => 'Ukuran foto maksimal 2MB.',
         ];
     }
 }

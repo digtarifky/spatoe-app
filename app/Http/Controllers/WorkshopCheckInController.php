@@ -13,7 +13,10 @@ use App\Models\User;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
+use Illuminate\Http\UploadedFile;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Storage;
+use Illuminate\Support\Str;
 use Inertia\Inertia;
 use Inertia\Response;
 
@@ -177,15 +180,28 @@ class WorkshopCheckInController extends Controller
                 ]);
 
                 // Upload foto Before jika ada
-                if ($request->hasFile("items.{$index}.before_photo")) {
-                    $photoFile = $request->file("items.{$index}.before_photo");
-                    $storedPath = $photoFile->store('shoes/before', 'public');
+                $photo = $request->file("items.{$index}.before_photo") ?? ($itemData['before_photo'] ?? null);
+
+                if ($photo instanceof UploadedFile && $photo->isValid()) {
+                    $extension = $photo->getClientOriginalExtension() ?: ($photo->guessExtension() ?: 'webp');
+                    $fileName = Str::random(40).'.'.$extension;
+                    $path = 'shoes/before/'.$fileName;
+
+                    $filePath = ($photo->getRealPath() && file_exists($photo->getRealPath()))
+                        ? $photo->getRealPath()
+                        : $photo->getPathname();
+
+                    $fileContent = ($filePath && file_exists($filePath))
+                        ? file_get_contents($filePath)
+                        : $photo->getContent();
+
+                    Storage::disk('public')->put($path, $fileContent);
 
                     OrderItemPhoto::create([
                         'order_item_id' => $orderItem->id,
                         'photo_type' => 'BEFORE',
-                        'photo_path' => $storedPath,
-                        'uploaded_by' => $user?->id,
+                        'photo_path' => $path,
+                        'uploaded_by' => auth()->id() ?? $user?->id,
                     ]);
                 }
 
@@ -210,4 +226,3 @@ class WorkshopCheckInController extends Controller
         );
     }
 }
-

@@ -5,7 +5,6 @@ use App\Http\Controllers\TrackingController;
 use App\Http\Controllers\WorkshopCheckInController;
 use App\Http\Controllers\WorkshopController;
 use Illuminate\Support\Facades\Route;
-use Inertia\Inertia;
 
 // Public Routes
 Route::get('/', function () {
@@ -17,7 +16,7 @@ Route::get('/tracking', [TrackingController::class, 'index'])->name('tracking.in
 // Protected Routes (Internal Staff & Admin)
 Route::middleware(['auth', 'verified'])->group(function () {
     Route::get('/dashboard', function () {
-        return Inertia::render('Dashboard');
+        return redirect()->route('workshop.index');
     })->name('dashboard');
 
     Route::get('/profile', [ProfileController::class, 'edit'])->name('profile.edit');

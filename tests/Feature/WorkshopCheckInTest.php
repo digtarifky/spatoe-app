@@ -5,6 +5,7 @@ namespace Tests\Feature;
 use App\Models\Customer;
 use App\Models\Order;
 use App\Models\OrderItem;
+use App\Models\OrderItemPhoto;
 use App\Models\Service;
 use App\Models\User;
 use Illuminate\Foundation\Testing\RefreshDatabase;
@@ -288,5 +289,107 @@ class WorkshopCheckInTest extends TestCase
         $tags = $order->items->pluck('item_tag_code')->all();
         $this->assertEquals(['TAG-001', 'TAG-002'], $tags);
     }
-}
 
+    public function test_checkin_accepts_webp_photo_and_stores_successfully(): void
+    {
+        Storage::fake('public');
+
+        // Simulasi file WebP hasil kompresi browser canvas (ukuran ~300KB)
+        $webpPhoto = UploadedFile::fake()->create('compressed_shoe.webp', 300, 'image/webp');
+
+        $payload = [
+            'phone_number' => '081233445566',
+            'full_name' => 'WebP User',
+            'default_address' => 'Jl. Gebang Surabaya',
+            'campus_cluster' => 'ITS',
+            'payment_status' => 'PAID',
+            'payment_method' => 'QRIS',
+            'items' => [
+                [
+                    'shoe_brand_model' => 'Nike Pegasus 40',
+                    'shoe_material' => 'Mesh',
+                    'service_id' => $this->fastClean->id,
+                    'before_photo' => $webpPhoto,
+                ],
+            ],
+        ];
+
+        $response = $this->actingAs($this->technician)->post(route('workshop.checkin.store'), $payload);
+
+        $response->assertRedirect(route('workshop.index'));
+        $response->assertSessionHas('success');
+
+        $item = OrderItem::where('shoe_brand_model', 'Nike Pegasus 40')->first();
+        $this->assertNotNull($item);
+
+        $this->assertDatabaseHas('order_item_photos', [
+            'order_item_id' => $item->id,
+            'photo_type' => 'BEFORE',
+        ]);
+
+        $photoRecord = OrderItemPhoto::where('order_item_id', $item->id)->first();
+        $this->assertNotNull($photoRecord);
+        Storage::disk('public')->assertExists($photoRecord->photo_path);
+    }
+
+    public function test_checkin_validates_photo_max_size_exceeded(): void
+    {
+        Storage::fake('public');
+
+        // File melebihi batas 2048 KB (misal 3000 KB)
+        $oversizedPhoto = UploadedFile::fake()->create('huge_shoe.jpg', 3000, 'image/jpeg');
+
+        $payload = [
+            'phone_number' => '081233445566',
+            'full_name' => 'Large File User',
+            'default_address' => 'Jl. Test Oversized',
+            'payment_status' => 'PAID',
+            'payment_method' => 'COD',
+            'items' => [
+                [
+                    'shoe_brand_model' => 'Converse Chuck',
+                    'shoe_material' => 'Canvas',
+                    'service_id' => $this->fastClean->id,
+                    'before_photo' => $oversizedPhoto,
+                ],
+            ],
+        ];
+
+        $response = $this->actingAs($this->technician)->post(route('workshop.checkin.store'), $payload);
+
+        $response->assertSessionHasErrors(['items.0.before_photo']);
+    }
+
+    public function test_checkin_succeeds_without_photo_and_does_not_create_photo_record(): void
+    {
+        Storage::fake('public');
+
+        $payload = [
+            'phone_number' => '081233445577',
+            'full_name' => 'No Photo Customer',
+            'default_address' => 'Jl. Tanpa Foto No 1',
+            'payment_status' => 'PAID',
+            'payment_method' => 'COD',
+            'items' => [
+                [
+                    'shoe_brand_model' => 'Adidas Samba',
+                    'shoe_material' => 'Leather',
+                    'service_id' => $this->fastClean->id,
+                    'before_photo' => null,
+                ],
+            ],
+        ];
+
+        $response = $this->actingAs($this->technician)->post(route('workshop.checkin.store'), $payload);
+
+        $response->assertRedirect(route('workshop.index'));
+        $response->assertSessionHas('success');
+
+        $item = OrderItem::where('shoe_brand_model', 'Adidas Samba')->first();
+        $this->assertNotNull($item);
+
+        $this->assertDatabaseMissing('order_item_photos', [
+            'order_item_id' => $item->id,
+        ]);
+    }
+}
