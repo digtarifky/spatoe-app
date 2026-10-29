@@ -1,31 +1,17 @@
 <script setup>
 import { ref, computed } from 'vue';
-import { Head, router, Link, usePage } from '@inertiajs/vue3';
+import { Head, router, usePage } from '@inertiajs/vue3';
 import AuthenticatedLayout from '@/Layouts/AuthenticatedLayout.vue';
+import WorkshopHeader from '@/Components/Workshop/WorkshopHeader.vue';
+import StationTabs from '@/Components/Workshop/StationTabs.vue';
+import StationWashing from '@/Components/Workshop/StationWashing.vue';
+import StationDrying from '@/Components/Workshop/StationDrying.vue';
+import StationQC from '@/Components/Workshop/StationQC.vue';
+import StationReady from '@/Components/Workshop/StationReady.vue';
 import ThermalPrintModal from '@/Components/ThermalPrintModal.vue';
 import StationAssignmentModal from '@/Components/StationAssignmentModal.vue';
 import QcModal from '@/Components/QcModal.vue';
-import {
-    LayoutGrid,
-    Printer,
-    Plus,
-    Sparkles,
-    Wind,
-    ShieldCheck,
-    Truck,
-    Clock,
-    AlertTriangle,
-    Package,
-    Search,
-    ChevronRight,
-    CheckCircle2,
-    RotateCcw,
-    X,
-    User,
-    Users,
-    Check,
-    Lock,
-} from 'lucide-vue-next';
+import { AlertTriangle, X } from 'lucide-vue-next';
 
 const props = defineProps({
     items: {
@@ -101,36 +87,6 @@ const canOperateStation = (stationKey) => {
     return userStation === normalizedKey;
 };
 
-// Aliaskan isActionPermitted ke canOperateStation untuk kompatibilitas
-const isActionPermitted = (columnKey, item = null) => {
-    return canOperateStation(columnKey || item?.status);
-};
-
-const getStationBadgeLabel = (station) => {
-    switch (station) {
-        case 'WASHING':
-            return '🧼 Pos Cuci & Sikat';
-        case 'DRYING':
-            return '💨 Pos Pengeringan';
-        case 'QC_INSPECTION':
-            return '🛡️ Pos QC';
-        case 'READY_DELIVERY':
-            return '🚚 Siap Antar';
-        case 'ALL':
-        default:
-            return '🔄 Semua Pos (Rotasi Bebas)';
-    }
-};
-
-// Tab Filter Stasiun Kerja (Assembly Line)
-const WORKSTATION_TABS = [
-    { key: 'all', label: 'Semua Pos (Overview)', icon: LayoutGrid },
-    { key: 'wash', label: 'Pos Cuci', icon: Sparkles },
-    { key: 'dry', label: 'Pos Pengeringan', icon: Wind },
-    { key: 'qc', label: 'Pos QC', icon: ShieldCheck },
-    { key: 'ready', label: 'Siap Antar', icon: Truck },
-];
-
 const stationCounts = computed(() => {
     const checkedIn = props.grouped_items.CHECKED_IN?.length || 0;
     const washing = props.grouped_items.WASHING?.length || 0;
@@ -146,6 +102,14 @@ const stationCounts = computed(() => {
         ready: ready,
     };
 });
+
+const handleSearch = () => {
+    router.get(
+        route('workshop.index'),
+        { search: searchQuery.value },
+        { preserveState: true, preserveScroll: true, replace: true }
+    );
+};
 
 const openPrintModal = (item) => {
     printOrder.value = {
@@ -174,86 +138,9 @@ const openPrintModal = (item) => {
     printModalOpen.value = true;
 };
 
-// 5 Definisi Kolom Alur Pengerjaan
-const COLUMNS = [
-    {
-        key: 'CHECKED_IN',
-        title: 'Checked In / Antre',
-        subtitle: 'Intake Meja Kasir',
-        icon: Package,
-        accentColor: 'border-amber-400 bg-amber-500/10 text-amber-700',
-        badgeColor: 'bg-amber-100 text-amber-800',
-        actionLabel: 'Mulai Cuci',
-        nextStatus: 'WASHING',
-        actionIcon: Sparkles,
-        btnColor: 'bg-amber-600 hover:bg-amber-700 text-white',
-    },
-    {
-        key: 'WASHING',
-        title: 'Washing / Pencucian',
-        subtitle: 'Treatment & Sikat Noda',
-        icon: Sparkles,
-        accentColor: 'border-blue-400 bg-blue-500/10 text-blue-700',
-        badgeColor: 'bg-blue-100 text-blue-800',
-        actionLabel: 'Pindah ke Dryer',
-        nextStatus: 'DRYING',
-        actionIcon: Wind,
-        btnColor: 'bg-blue-600 hover:bg-blue-700 text-white',
-    },
-    {
-        key: 'DRYING',
-        title: 'Drying / Pengeringan',
-        subtitle: 'Blower & Cold Dryer',
-        icon: Wind,
-        accentColor: 'border-indigo-400 bg-indigo-500/10 text-indigo-700',
-        badgeColor: 'bg-indigo-100 text-indigo-800',
-        actionLabel: 'Kirim ke Pos QC',
-        nextStatus: 'QC_INSPECTION',
-        actionIcon: ShieldCheck,
-        btnColor: 'bg-indigo-600 hover:bg-indigo-700 text-white',
-    },
-    {
-        key: 'QC_INSPECTION',
-        title: 'QC Inspection',
-        subtitle: '6 Parameter Kelayakan',
-        icon: ShieldCheck,
-        accentColor: 'border-emerald-400 bg-emerald-500/10 text-emerald-700',
-        badgeColor: 'bg-emerald-100 text-emerald-800',
-        actionLabel: 'Buka Lembar QC',
-        nextStatus: 'READY_DELIVERY',
-        actionIcon: ShieldCheck,
-        btnColor: 'bg-emerald-700 hover:bg-emerald-800 text-white',
-    },
-    {
-        key: 'READY_DELIVERY',
-        title: 'Ready / Siap Antar',
-        subtitle: 'Packing & Silica Gel',
-        icon: Truck,
-        accentColor: 'border-rose-400 bg-rose-500/10 text-rose-700',
-        badgeColor: 'bg-rose-100 text-rose-800',
-        actionLabel: 'Selesaikan Pesanan',
-        nextStatus: 'DELIVERED',
-        actionIcon: CheckCircle2,
-        btnColor: 'bg-rose-700 hover:bg-rose-800 text-white',
-    },
-];
-
-const handleSearch = () => {
-    router.get(
-        route('workshop.index'),
-        { search: searchQuery.value },
-        { preserveState: true, preserveScroll: true, replace: true }
-    );
-};
-
-const clearSearch = () => {
-    searchQuery.value = '';
-    handleSearch();
-};
-
 const updateStatus = (item, nextStatus, notes = null) => {
     if (!nextStatus || updatingItemId.value === item.id) return;
-    if (!isActionPermitted(item.status, item)) return;
+    if (!canOperateStation(item.status)) return;
 
     updatingItemId.value = item.id;
 
@@ -277,6 +164,10 @@ const updateStatus = (item, nextStatus, notes = null) => {
     );
 };
 
+const handleAdvance = ({ item, nextStatus, notes }) => {
+    updateStatus(item, nextStatus, notes);
+};
+
 const openDefectModal = (item) => {
     selectedDefectItem.value = item;
 };
@@ -292,64 +183,6 @@ const handleQcPass = ({ item, notes }) => {
 const handleQcReject = ({ item, notes }) => {
     updateStatus(item, 'WASHING', notes);
 };
-
-const getSlaBadgeClass = (slaStatus) => {
-    switch (slaStatus) {
-        case 'overdue':
-            return 'bg-red-500 text-white animate-pulse font-bold';
-        case 'urgent':
-            return 'bg-amber-400 text-amber-950 font-bold';
-        case 'warning':
-            return 'bg-amber-100 text-amber-800 font-medium';
-        default:
-            return 'bg-emerald-100 text-emerald-800 font-medium';
-    }
-};
-
-const stationDetails = computed(() => {
-    switch (activeTab.value) {
-        case 'wash':
-            return {
-                title: 'Stasiun Pos Cuci & Treatment',
-                subtitle: 'SOP pembersihan noda, perendaman material, dan sikat upper/midsole/outsole sesuai paket',
-                icon: Sparkles,
-                accent: 'text-blue-700 bg-blue-50 border-blue-200',
-                columns: [
-                    COLUMNS.find((c) => c.key === 'CHECKED_IN'),
-                    COLUMNS.find((c) => c.key === 'WASHING'),
-                ],
-            };
-        case 'dry':
-            return {
-                title: 'Stasiun Pos Pengeringan (Dryer Station)',
-                subtitle: 'Pengeringan suhu terkontrol dengan blower & cold dehumidifier tanpa panas berlebih',
-                icon: Wind,
-                accent: 'text-indigo-700 bg-indigo-50 border-indigo-200',
-                column: COLUMNS.find((c) => c.key === 'DRYING'),
-                items: props.grouped_items.DRYING || [],
-            };
-        case 'qc':
-            return {
-                title: 'Stasiun Quality Control (QC Inspection)',
-                subtitle: 'Verifikasi kelayakan 6 parameter mutu Spatoe sebelum sepatu dipacking rapi',
-                icon: ShieldCheck,
-                accent: 'text-emerald-700 bg-emerald-50 border-emerald-200',
-                column: COLUMNS.find((c) => c.key === 'QC_INSPECTION'),
-                items: props.grouped_items.QC_INSPECTION || [],
-            };
-        case 'ready':
-            return {
-                title: 'Stasiun Siap Antar & Serah Terima',
-                subtitle: 'Sepatu telah lolos QC dan dipacking rapi, siap diserahkan ke kurir pengantaran atau diambil langsung',
-                icon: Truck,
-                accent: 'text-rose-700 bg-rose-50 border-rose-200',
-                column: COLUMNS.find((c) => c.key === 'READY_DELIVERY'),
-                items: props.grouped_items.READY_DELIVERY || [],
-            };
-        default:
-            return null;
-    }
-});
 </script>
 
 <template>
@@ -361,660 +194,124 @@ const stationDetails = computed(() => {
         <Head title="Workshop Floor - Antrean Cuci" />
 
         <div class="min-h-screen bg-neutral-100/70 pb-16">
-            <!-- Header Workshop & Mini Metrics -->
+            <!-- Header Workshop & Toolbar Baris Terpadu -->
             <div class="border-b border-neutral-200 bg-white shadow-xs">
                 <div class="mx-auto max-w-7xl px-4 py-5 sm:px-6 lg:px-8 space-y-4">
-                    <!-- Baris 1: Judul di Kiri, 3 Kartu Metrik Sejajar di Pojok Kanan Atas -->
-                    <div class="flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
-                        <div>
-                            <div class="flex items-center gap-2.5">
-                                <span class="h-3 w-3 rounded-full bg-[#6B0B23]" />
-                                <h1 class="text-xl sm:text-2xl font-black tracking-tight text-neutral-900">
-                                    Workshop Floor
-                                </h1>
-                                <span class="text-xs font-semibold text-neutral-400 hidden sm:inline">/ Antrean Cuci</span>
-                            </div>
-                            <p class="mt-0.5 text-xs text-neutral-500">
-                                Pantau SLA pengerjaan, manajemen stasiun spesialisasi teknisi, dan perbarui tahapan 1-klik.
-                            </p>
-                        </div>
-
-                        <!-- 3 Kartu Metrik Sejajar Mentok di Sudut Kanan Atas -->
-                        <div class="flex items-center gap-2 sm:gap-3 flex-shrink-0">
-                            <!-- Metrik: Total Workshop -->
-                            <div class="flex items-center gap-2.5 rounded-xl border border-neutral-200 bg-neutral-50 px-3 py-1.5 shadow-2xs">
-                                <div class="rounded-lg bg-neutral-200/80 p-1.5 text-neutral-700">
-                                    <Package class="h-4 w-4" />
-                                </div>
-                                <div class="leading-tight">
-                                    <p class="text-[9px] font-bold uppercase tracking-wider text-neutral-400">Total Workshop</p>
-                                    <p class="text-xs font-extrabold text-neutral-900">{{ metrics.total_active }} <span class="text-[10px] font-normal text-neutral-500">pasang</span></p>
-                                </div>
-                            </div>
-
-                            <!-- Metrik: Antrean Cuci -->
-                            <div class="flex items-center gap-2.5 rounded-xl border border-amber-200 bg-amber-50/50 px-3 py-1.5 shadow-2xs">
-                                <div class="rounded-lg bg-amber-100 p-1.5 text-amber-700">
-                                    <Sparkles class="h-4 w-4" />
-                                </div>
-                                <div class="leading-tight">
-                                    <p class="text-[9px] font-bold uppercase tracking-wider text-amber-600">Antrean Cuci</p>
-                                    <p class="text-xs font-extrabold text-amber-900">{{ metrics.needs_washing }} <span class="text-[10px] font-normal text-amber-700">pasang</span></p>
-                                </div>
-                            </div>
-
-                            <!-- Metrik: Mendesak -->
-                            <div class="flex items-center gap-2.5 rounded-xl border border-rose-200 bg-rose-50/50 px-3 py-1.5 shadow-2xs">
-                                <div class="rounded-lg bg-rose-100 p-1.5 text-rose-700">
-                                    <Clock class="h-4 w-4" />
-                                </div>
-                                <div class="leading-tight">
-                                    <p class="text-[9px] font-bold uppercase tracking-wider text-rose-600">Mendesak</p>
-                                    <p class="text-xs font-extrabold text-rose-900">{{ metrics.urgent_count }} <span class="text-[10px] font-normal text-rose-700">pasang</span></p>
-                                </div>
-                            </div>
-                        </div>
-                    </div>
+                    <!-- Baris 1: Judul di Kiri, 3 Kartu Metrik di Kanan Atas -->
+                    <WorkshopHeader :metrics="metrics" />
 
                     <!-- Baris 2: Toolbar Filter Stasiun (Kiri) & Tombol Aksi (Kanan) -->
-                    <div class="border-t border-neutral-100 pt-3.5 flex flex-col md:flex-row md:items-center md:justify-between gap-3">
-                        <!-- Sisi Kiri: Tab Pill Filter Stasiun Kerja (Assembly Line) -->
-                        <div class="flex items-center gap-2 overflow-x-auto pb-1 scrollbar-none min-w-0 flex-1">
-                            <button
-                                v-for="tab in WORKSTATION_TABS"
-                                :key="tab.key"
-                                type="button"
-                                @click="activeTab = tab.key"
-                                :class="[
-                                    'flex items-center gap-2 px-3.5 py-2 rounded-xl text-xs font-bold transition-all whitespace-nowrap shadow-2xs flex-shrink-0',
-                                    activeTab === tab.key
-                                        ? 'bg-[#6B0B23] text-white shadow-sm ring-2 ring-[#6B0B23]/20'
-                                        : 'bg-white border border-neutral-200 text-neutral-600 hover:text-neutral-900 hover:bg-neutral-50'
-                                ]"
-                            >
-                                <component :is="tab.icon" class="h-3.5 w-3.5" />
-                                <span>{{ tab.label }}</span>
-                                <span
-                                    :class="[
-                                        'px-1.5 py-0.5 rounded-full text-[10px] font-extrabold',
-                                        activeTab === tab.key
-                                            ? 'bg-white/20 text-white'
-                                            : 'bg-neutral-100 text-neutral-600'
-                                    ]"
-                                >
-                                    {{ stationCounts[tab.key] }}
-                                </span>
-                            </button>
-                        </div>
-
-                        <!-- Sisi Kanan: Tombol Aksi Sejajar Horizontal di Pojok Kanan -->
-                        <div class="flex items-center gap-2.5 flex-shrink-0">
-                            <!-- Tombol Atur Shift Teknisi (Admin & Supervisor Only) -->
-                            <button
-                                v-if="isAdmin"
-                                type="button"
-                                @click="stationModalOpen = true"
-                                class="inline-flex items-center gap-1.5 rounded-xl border border-neutral-300 bg-white px-3.5 py-2 text-xs font-bold text-neutral-700 shadow-2xs transition hover:bg-neutral-50 hover:text-neutral-900 whitespace-nowrap"
-                            >
-                                <Users class="h-3.5 w-3.5 text-[#6B0B23]" />
-                                <span>Atur Shift Teknisi</span>
-                            </button>
-
-                            <!-- Tombol + Terima Sepatu Baru -->
-                            <Link
-                                :href="route('workshop.checkin')"
-                                class="inline-flex items-center gap-1.5 rounded-xl bg-[#6B0B23] px-3.5 py-2 text-xs font-bold text-white shadow-xs transition hover:bg-[#54081B] whitespace-nowrap"
-                            >
-                                <Plus class="h-3.5 w-3.5" />
-                                <span>Terima Sepatu Baru</span>
-                            </Link>
-                        </div>
-                    </div>
+                    <StationTabs
+                        v-model="activeTab"
+                        :station-counts="stationCounts"
+                        :is-admin="isAdmin"
+                        @open-shift="stationModalOpen = true"
+                    />
                 </div>
             </div>
 
-            <!-- View 1: Semua Pos (Overview - Kanban Board Horizontal) -->
+            <!-- View 1: Semua Pos (Overview - 4 Kolom Berdampingan) -->
             <div v-if="activeTab === 'all'" class="mx-auto max-w-7xl px-4 pt-6 sm:px-6 lg:px-8">
                 <div class="flex gap-4 overflow-x-auto pb-6 items-start snap-x">
-                    <!-- Column Template -->
-                    <div
-                        v-for="col in COLUMNS"
-                        :key="col.key"
-                        class="w-72 flex-shrink-0 snap-start rounded-2xl border border-neutral-200 bg-neutral-100/90 shadow-2xs"
-                    >
-                        <!-- Column Header -->
-                        <div class="border-b border-neutral-200/80 bg-white px-4 py-3.5 rounded-t-2xl">
-                            <div class="flex items-center justify-between">
-                                <div class="flex items-center gap-2">
-                                    <div class="rounded-lg p-1.5" :class="col.accentColor">
-                                        <component :is="col.icon" class="h-4 w-4" />
-                                    </div>
-                                    <div>
-                                        <h2 class="text-xs font-bold text-neutral-900">{{ col.title }}</h2>
-                                        <p class="text-[10px] text-neutral-400">{{ col.subtitle }}</p>
-                                    </div>
-                                </div>
-                                <span class="rounded-full px-2 py-0.5 text-xs font-extrabold" :class="col.badgeColor">
-                                    {{ grouped_items[col.key]?.length || 0 }}
-                                </span>
-                            </div>
-                        </div>
+                    <!-- Kolom 1: Pos Cuci & Sikat (Checked In & Washing) -->
+                    <StationWashing
+                        :items="items"
+                        :checked-in-items="grouped_items.CHECKED_IN"
+                        :washing-items="grouped_items.WASHING"
+                        :can-operate="canOperateStation"
+                        :processing-item-id="updatingItemId"
+                        :is-overview="true"
+                        @advance="handleAdvance"
+                        @open-print="openPrintModal"
+                        @view-defect="openDefectModal"
+                    />
 
-                        <!-- Card List in Column -->
-                        <div class="max-h-[calc(100vh-320px)] space-y-3 overflow-y-auto p-3">
-                            <div
-                                v-if="!grouped_items[col.key] || grouped_items[col.key].length === 0"
-                                class="rounded-xl border border-dashed border-neutral-300 py-10 text-center text-xs text-neutral-400"
-                            >
-                                Tidak ada sepatu di tahap ini
-                            </div>
+                    <!-- Kolom 2: Pos Pengeringan -->
+                    <StationDrying
+                        :items="grouped_items.DRYING"
+                        :can-operate="canOperateStation('DRYING')"
+                        :processing-item-id="updatingItemId"
+                        :is-overview="true"
+                        @advance="handleAdvance"
+                        @open-print="openPrintModal"
+                        @view-defect="openDefectModal"
+                    />
 
-                            <!-- Shoe Card -->
-                            <div
-                                v-for="item in grouped_items[col.key]"
-                                :key="item.id"
-                                class="rounded-xl border border-neutral-200 bg-white p-3.5 shadow-xs transition-all hover:border-neutral-300 hover:shadow-sm"
-                            >
-                                <!-- Tag, Rak & Actions (Cetak / Defect) -->
-                                <div class="flex items-start justify-between gap-1">
-                                    <div class="flex flex-wrap items-center gap-1.5">
-                                        <span class="rounded bg-neutral-900 px-2 py-0.5 font-mono text-[11px] font-black tracking-wider text-white">
-                                            {{ item.item_tag_code }}
-                                        </span>
-                                        <span
-                                            v-if="item.storage_shelf_number"
-                                            class="rounded bg-neutral-100 border border-neutral-200 px-1.5 py-0.5 text-[10px] font-semibold text-neutral-600"
-                                        >
-                                            Rak {{ item.storage_shelf_number }}
-                                        </span>
-                                    </div>
+                    <!-- Kolom 3: Pos QC Inspection -->
+                    <StationQC
+                        :items="grouped_items.QC_INSPECTION"
+                        :can-operate="canOperateStation('QC_INSPECTION')"
+                        :processing-item-id="updatingItemId"
+                        :is-overview="true"
+                        @open-qc="openQcModal"
+                        @open-print="openPrintModal"
+                        @view-defect="openDefectModal"
+                    />
 
-                                    <div class="flex items-center gap-1">
-                                        <!-- Thermal Print Button -->
-                                        <button
-                                            type="button"
-                                            @click="openPrintModal(item)"
-                                            class="flex items-center gap-1 rounded bg-neutral-100 border border-neutral-200 px-1.5 py-0.5 text-[10px] font-semibold text-neutral-600 hover:text-neutral-900 hover:bg-neutral-200 transition-colors"
-                                            title="Cetak Struk Termal & Label Tag"
-                                        >
-                                            <Printer class="h-3 w-3 text-neutral-600" />
-                                            <span class="hidden sm:inline">Cetak</span>
-                                        </button>
-
-                                        <!-- Defect Alert Button (if any) -->
-                                        <button
-                                            v-if="item.defect_notes"
-                                            type="button"
-                                            @click="openDefectModal(item)"
-                                            class="flex items-center gap-1 rounded bg-amber-50 border border-amber-200 px-1.5 py-0.5 text-[10px] font-bold text-amber-700 hover:bg-amber-100"
-                                            title="Ada catatan noda/cacat awal"
-                                        >
-                                            <AlertTriangle class="h-3 w-3 text-amber-600" />
-                                            <span>Defect</span>
-                                        </button>
-                                    </div>
-                                </div>
-
-                                <!-- Shoe Model & Service Badge -->
-                                <div class="mt-2.5">
-                                    <h3 class="text-sm font-bold text-neutral-900 line-clamp-1">
-                                        {{ item.shoe_brand_model }}
-                                    </h3>
-                                    <div class="mt-1 flex flex-wrap items-center gap-1.5">
-                                        <span class="rounded bg-[#6B0B23] px-2 py-0.5 text-[10px] font-bold text-white">
-                                            {{ item.service?.service_name || 'Layanan' }}
-                                        </span>
-                                        <span class="text-[11px] text-neutral-500">
-                                            {{ item.shoe_material }} <span v-if="item.shoe_color">• {{ item.shoe_color }}</span>
-                                        </span>
-                                    </div>
-                                </div>
-
-                                <!-- Customer & Technician Info -->
-                                <div class="mt-2.5 rounded-lg bg-neutral-50 p-2 text-[11px] text-neutral-600">
-                                    <div class="flex items-center justify-between">
-                                        <span class="text-neutral-400">Pemilik:</span>
-                                        <span class="font-semibold text-neutral-800">{{ item.customer_name || '-' }}</span>
-                                    </div>
-                                    <div class="mt-1 flex items-center justify-between">
-                                        <span class="text-neutral-400">Teknisi Pos:</span>
-                                        <span class="font-medium text-neutral-700 flex items-center gap-1">
-                                            <User class="h-3 w-3 text-neutral-400" />
-                                            {{ item.technician?.name || 'Belum ditugaskan' }}
-                                        </span>
-                                    </div>
-                                </div>
-
-                                <!-- SLA Countdown Badge -->
-                                <div class="mt-2.5 flex items-center justify-between text-[11px]">
-                                    <div class="flex items-center gap-1 text-neutral-400">
-                                        <Clock class="h-3 w-3" />
-                                        <span>SLA:</span>
-                                    </div>
-                                    <span
-                                        class="rounded-full px-2 py-0.5 text-[10px]"
-                                        :class="getSlaBadgeClass(item.sla_status)"
-                                    >
-                                        {{ item.sla_text }}
-                                    </span>
-                                </div>
-
-                                <!-- Action Buttons with Workstation Guard -->
-                                <div class="mt-3.5 border-t border-neutral-100 pt-2.5">
-                                    <template v-if="col.key === 'QC_INSPECTION'">
-                                        <button
-                                            type="button"
-                                            @click="canOperateStation(col.key) && openQcModal(item)"
-                                            :disabled="updatingItemId === item.id || !canOperateStation(col.key)"
-                                            :class="[
-                                                'flex w-full items-center justify-center gap-1.5 rounded-xl py-2 text-xs font-bold shadow-xs transition',
-                                                !canOperateStation(col.key)
-                                                    ? 'bg-neutral-200 text-neutral-400 cursor-not-allowed opacity-60'
-                                                    : 'bg-emerald-700 hover:bg-emerald-800 text-white'
-                                            ]"
-                                        >
-                                            <Lock v-if="!canOperateStation(col.key)" class="h-3.5 w-3.5" />
-                                            <ShieldCheck v-else class="h-3.5 w-3.5" />
-                                            <span>{{ !canOperateStation(col.key) ? 'Hanya Petugas Pos Terkait' : 'Buka Lembar QC' }}</span>
-                                        </button>
-                                    </template>
-                                    <template v-else-if="col.actionLabel">
-                                        <button
-                                            type="button"
-                                            @click="canOperateStation(col.key) && updateStatus(item, col.nextStatus)"
-                                            :disabled="updatingItemId === item.id || !canOperateStation(col.key)"
-                                            :class="[
-                                                'flex w-full items-center justify-center gap-1.5 rounded-xl py-2 text-xs font-bold shadow-xs transition',
-                                                !canOperateStation(col.key)
-                                                    ? 'bg-neutral-200 text-neutral-400 cursor-not-allowed opacity-60'
-                                                    : col.btnColor
-                                            ]"
-                                        >
-                                            <Lock v-if="!canOperateStation(col.key)" class="h-3.5 w-3.5" />
-                                            <component v-else :is="col.actionIcon" class="h-3.5 w-3.5" />
-                                            <span>{{ !canOperateStation(col.key) ? 'Hanya Petugas Pos Terkait' : (updatingItemId === item.id ? 'Memproses...' : col.actionLabel) }}</span>
-                                        </button>
-                                    </template>
-
-                                    <!-- Label Mode Pantau jika di luar jobdesk -->
-                                    <div
-                                        v-if="!canOperateStation(col.key)"
-                                        class="mt-1.5 flex items-center justify-center gap-1 text-[10px] text-amber-700 bg-amber-50 rounded-lg py-1 px-2 border border-amber-200/60 text-center"
-                                    >
-                                        <Lock class="w-3 h-3 text-amber-600 flex-shrink-0" />
-                                        <span>Mode Pantau (Hanya petugas pos terkait yang dapat memindahkan)</span>
-                                    </div>
-                                </div>
-                            </div>
-                        </div>
-                    </div>
+                    <!-- Kolom 4: Pos Siap Antar -->
+                    <StationReady
+                        :items="grouped_items.READY_DELIVERY"
+                        :can-operate="canOperateStation('READY_DELIVERY')"
+                        :processing-item-id="updatingItemId"
+                        :is-overview="true"
+                        @advance="handleAdvance"
+                        @open-print="openPrintModal"
+                        @view-defect="openDefectModal"
+                    />
                 </div>
             </div>
 
-            <!-- View 2: Pos Cuci Spesialisasi (CHECKED_IN & WASHING Side-by-Side) -->
-            <div v-else-if="activeTab === 'wash'" class="mx-auto max-w-5xl px-4 pt-6 sm:px-6 lg:px-8 space-y-6">
-                <!-- Station Banner -->
-                <div class="rounded-2xl border border-blue-200 bg-white p-5 shadow-xs flex flex-col sm:flex-row sm:items-center justify-between gap-4">
-                    <div class="flex items-center gap-3.5">
-                        <div class="rounded-xl bg-blue-500/10 p-3 text-blue-700 border border-blue-200">
-                            <Sparkles class="h-6 w-6" />
-                        </div>
-                        <div>
-                            <h2 class="text-base font-extrabold text-neutral-900">Stasiun Pos Cuci & Treatment</h2>
-                            <p class="text-xs text-neutral-500 mt-0.5">
-                                Fokus penanganan noda, perendaman material, dan sikat upper/midsole/outsole sesuai SOP Spatoe.
-                            </p>
-                        </div>
-                    </div>
-                    <div class="flex items-center gap-2">
-                        <span class="rounded-xl bg-blue-100 text-blue-800 px-3 py-1.5 text-xs font-bold">
-                            {{ stationCounts.wash }} pasang di pos ini
-                        </span>
-                    </div>
-                </div>
+            <!-- View 2: Tampilan Terpusat Stasiun Spesifik (max-w-4xl / max-w-5xl) -->
+            <div v-else class="pt-6">
+                <!-- Stasiun Cuci Spesifik -->
+                <StationWashing
+                    v-if="activeTab === 'wash'"
+                    :items="items"
+                    :checked-in-items="grouped_items.CHECKED_IN"
+                    :washing-items="grouped_items.WASHING"
+                    :can-operate="canOperateStation"
+                    :processing-item-id="updatingItemId"
+                    :is-overview="false"
+                    @advance="handleAdvance"
+                    @open-print="openPrintModal"
+                    @view-defect="openDefectModal"
+                />
 
-                <!-- 2 Kolom Pos Cuci: Antrean Masuk vs Sedang Dicuci (Ukuran Seimbang) -->
-                <div class="grid grid-cols-1 md:grid-cols-2 gap-6 items-start">
-                    <div
-                        v-for="col in stationDetails.columns"
-                        :key="col.key"
-                        class="rounded-2xl border border-neutral-200 bg-neutral-100/90 shadow-2xs w-full"
-                    >
-                        <div class="border-b border-neutral-200/80 bg-white px-5 py-4 rounded-t-2xl flex items-center justify-between">
-                            <div class="flex items-center gap-2.5">
-                                <div class="rounded-lg p-1.5" :class="col.accentColor">
-                                    <component :is="col.icon" class="h-4 w-4" />
-                                </div>
-                                <div>
-                                    <h3 class="text-xs font-bold text-neutral-900">{{ col.title }}</h3>
-                                    <p class="text-[10px] text-neutral-400">{{ col.subtitle }}</p>
-                                </div>
-                            </div>
-                            <span class="rounded-full px-2.5 py-0.5 text-xs font-extrabold" :class="col.badgeColor">
-                                {{ grouped_items[col.key]?.length || 0 }}
-                            </span>
-                        </div>
+                <!-- Stasiun Pengeringan Spesifik -->
+                <StationDrying
+                    v-else-if="activeTab === 'dry'"
+                    :items="grouped_items.DRYING"
+                    :can-operate="canOperateStation('DRYING')"
+                    :processing-item-id="updatingItemId"
+                    :is-overview="false"
+                    @advance="handleAdvance"
+                    @open-print="openPrintModal"
+                    @view-defect="openDefectModal"
+                />
 
-                        <div class="p-4 space-y-3.5 max-h-[calc(100vh-340px)] overflow-y-auto">
-                            <div
-                                v-if="!grouped_items[col.key] || grouped_items[col.key].length === 0"
-                                class="rounded-xl border border-dashed border-neutral-300 py-12 text-center text-xs text-neutral-400 bg-white/50"
-                            >
-                                Tidak ada sepatu di antrean ini
-                            </div>
+                <!-- Stasiun QC Spesifik -->
+                <StationQC
+                    v-else-if="activeTab === 'qc'"
+                    :items="grouped_items.QC_INSPECTION"
+                    :can-operate="canOperateStation('QC_INSPECTION')"
+                    :processing-item-id="updatingItemId"
+                    :is-overview="false"
+                    @open-qc="openQcModal"
+                    @open-print="openPrintModal"
+                    @view-defect="openDefectModal"
+                />
 
-                            <div
-                                v-for="item in grouped_items[col.key]"
-                                :key="item.id"
-                                class="rounded-xl border border-neutral-200 bg-white p-4 shadow-xs transition-all hover:border-neutral-300 hover:shadow-sm w-full min-w-[320px] sm:min-w-[340px]"
-                            >
-                                <div class="flex items-start justify-between gap-1">
-                                    <div class="flex flex-wrap items-center gap-1.5">
-                                        <span class="rounded bg-neutral-900 px-2.5 py-0.5 font-mono text-xs font-black tracking-wider text-white">
-                                            {{ item.item_tag_code }}
-                                        </span>
-                                        <span
-                                            v-if="item.storage_shelf_number"
-                                            class="rounded bg-neutral-100 border border-neutral-200 px-2 py-0.5 text-[10px] font-semibold text-neutral-600"
-                                        >
-                                            Rak {{ item.storage_shelf_number }}
-                                        </span>
-                                    </div>
-
-                                    <div class="flex items-center gap-1.5">
-                                        <button
-                                            type="button"
-                                            @click="openPrintModal(item)"
-                                            class="flex items-center gap-1 rounded bg-neutral-100 border border-neutral-200 px-2 py-1 text-[10px] font-semibold text-neutral-600 hover:text-neutral-900 hover:bg-neutral-200 transition-colors"
-                                            title="Cetak Struk Termal & Label Tag"
-                                        >
-                                            <Printer class="h-3 w-3 text-neutral-600" />
-                                            <span>Cetak</span>
-                                        </button>
-
-                                        <button
-                                            v-if="item.defect_notes"
-                                            type="button"
-                                            @click="openDefectModal(item)"
-                                            class="flex items-center gap-1 rounded bg-amber-50 border border-amber-200 px-2 py-1 text-[10px] font-bold text-amber-700 hover:bg-amber-100"
-                                            title="Ada catatan noda/cacat awal"
-                                        >
-                                            <AlertTriangle class="h-3 w-3 text-amber-600" />
-                                            <span>Defect</span>
-                                        </button>
-                                    </div>
-                                </div>
-
-                                <div class="mt-3">
-                                    <h4 class="text-sm font-bold text-neutral-900">{{ item.shoe_brand_model }}</h4>
-                                    <div class="mt-1 flex flex-wrap items-center gap-1.5">
-                                        <span class="rounded bg-[#6B0B23] px-2 py-0.5 text-[10px] font-bold text-white">
-                                            {{ item.service?.service_name || 'Layanan' }}
-                                        </span>
-                                        <span class="text-[11px] text-neutral-500">
-                                            {{ item.shoe_material }} <span v-if="item.shoe_color">• {{ item.shoe_color }}</span>
-                                        </span>
-                                    </div>
-                                </div>
-
-                                <div class="mt-3 rounded-lg bg-neutral-50 p-2.5 text-xs text-neutral-600">
-                                    <div class="flex items-center justify-between">
-                                        <span class="text-neutral-400">Pemilik:</span>
-                                        <span class="font-semibold text-neutral-800">{{ item.customer_name || '-' }}</span>
-                                    </div>
-                                    <div class="mt-1 flex items-center justify-between">
-                                        <span class="text-neutral-400">Teknisi Pos:</span>
-                                        <span class="font-medium text-neutral-700 flex items-center gap-1">
-                                            <User class="h-3 w-3 text-neutral-400" />
-                                            {{ item.technician?.name || 'Belum ditugaskan' }}
-                                        </span>
-                                    </div>
-                                </div>
-
-                                <div class="mt-3 flex items-center justify-between text-xs">
-                                    <div class="flex items-center gap-1 text-neutral-400">
-                                        <Clock class="h-3 w-3" />
-                                        <span>Target SLA:</span>
-                                    </div>
-                                    <span class="rounded-full px-2.5 py-0.5 text-[10px]" :class="getSlaBadgeClass(item.sla_status)">
-                                        {{ item.sla_text }}
-                                    </span>
-                                </div>
-
-                                <!-- Action Button with Guard -->
-                                <div class="mt-3.5 border-t border-neutral-100 pt-3">
-                                    <button
-                                        type="button"
-                                        @click="canOperateStation(col.key) && updateStatus(item, col.nextStatus)"
-                                        :disabled="updatingItemId === item.id || !canOperateStation(col.key)"
-                                        :class="[
-                                            'flex w-full items-center justify-center gap-2 rounded-xl py-2.5 text-xs font-bold shadow-xs transition',
-                                            !canOperateStation(col.key)
-                                                ? 'bg-neutral-200 text-neutral-400 cursor-not-allowed opacity-60'
-                                                : col.btnColor
-                                        ]"
-                                    >
-                                        <Lock v-if="!canOperateStation(col.key)" class="h-4 w-4" />
-                                        <component v-else :is="col.actionIcon" class="h-4 w-4" />
-                                        <span>{{ !canOperateStation(col.key) ? 'Hanya Petugas Pos Terkait' : (updatingItemId === item.id ? 'Memproses...' : col.actionLabel) }}</span>
-                                    </button>
-
-                                    <!-- Label Mode Pantau jika bukan petugas pos cuci -->
-                                    <div
-                                        v-if="!canOperateStation(col.key)"
-                                        class="mt-1.5 flex items-center justify-center gap-1 text-[10px] text-amber-700 bg-amber-50 rounded-lg py-1 px-2 border border-amber-200/60 text-center"
-                                    >
-                                        <Lock class="w-3 h-3 text-amber-600 flex-shrink-0" />
-                                        <span>Mode Pantau (Hanya petugas pos terkait yang dapat memindahkan)</span>
-                                    </div>
-                                </div>
-                            </div>
-                        </div>
-                    </div>
-                </div>
-            </div>
-
-            <!-- View 3: Single Station Focused View (Pos Pengeringan, Pos QC, atau Siap Antar) -->
-            <!-- Bar stasiun setara Pos Cuci (max-w-5xl), kartu di bawahnya tetap terpusat di tengah (max-w-2xl) -->
-            <div v-else class="mx-auto max-w-5xl px-4 pt-6 sm:px-6 lg:px-8 space-y-6">
-                <!-- Station Banner (Lebar setara Pos Cuci: max-w-5xl) -->
-                <div class="rounded-2xl border bg-white p-5 shadow-xs flex flex-col sm:flex-row sm:items-center justify-between gap-4" :class="stationDetails.accent">
-                    <div class="flex items-center gap-3.5">
-                        <div class="rounded-xl p-3 border bg-white/80">
-                            <component :is="stationDetails.icon" class="h-6 w-6" />
-                        </div>
-                        <div>
-                            <h2 class="text-base font-extrabold text-neutral-900">{{ stationDetails.title }}</h2>
-                            <p class="text-xs text-neutral-600 mt-0.5">{{ stationDetails.subtitle }}</p>
-                        </div>
-                    </div>
-                    <div class="flex items-center gap-2">
-                        <span class="rounded-xl bg-white/90 border px-3 py-1.5 text-xs font-bold text-neutral-800 shadow-2xs">
-                            {{ stationDetails.items.length }} pasang di stasiun ini
-                        </span>
-                    </div>
-                </div>
-
-                <!-- Empty State -->
-                <div
-                    v-if="stationDetails.items.length === 0"
-                    class="rounded-2xl border border-dashed border-neutral-300 py-16 text-center text-xs text-neutral-400 bg-white shadow-2xs max-w-2xl mx-auto"
-                >
-                    <component :is="stationDetails.icon" class="h-8 w-8 mx-auto text-neutral-300 mb-2" />
-                    <p class="text-sm font-bold text-neutral-700">Tidak ada antrean di stasiun ini</p>
-                    <p class="text-xs text-neutral-400 mt-1 max-w-sm mx-auto">
-                        Semua sepatu pada tahap ini telah selesai diproses dan diteruskan ke stasiun kerja berikutnya.
-                    </p>
-                </div>
-
-                <!-- Daftar Kartu Sepatu 1 di Tengah (Single Centered Column, max-w-2xl tidak dipanjangkan) -->
-                <div v-else class="max-w-2xl mx-auto space-y-4 w-full">
-                    <div
-                        v-for="item in stationDetails.items"
-                        :key="item.id"
-                        class="rounded-2xl border border-neutral-200 bg-white p-4 sm:p-5 shadow-xs transition-all hover:border-neutral-300 hover:shadow-sm flex flex-col justify-between w-full"
-                    >
-                        <div>
-                            <!-- Header Card: Tag & Rak & Print/Defect -->
-                            <div class="flex items-start justify-between gap-1">
-                                <div class="flex flex-wrap items-center gap-1.5">
-                                    <span class="rounded bg-neutral-900 px-2.5 py-0.5 font-mono text-xs font-black tracking-wider text-white">
-                                        {{ item.item_tag_code }}
-                                    </span>
-                                    <span
-                                        v-if="item.storage_shelf_number"
-                                        class="rounded bg-neutral-100 border border-neutral-200 px-2 py-0.5 text-[10px] font-semibold text-neutral-600"
-                                    >
-                                        Rak {{ item.storage_shelf_number }}
-                                    </span>
-                                </div>
-
-                                <div class="flex items-center gap-1.5">
-                                    <button
-                                        type="button"
-                                        @click="openPrintModal(item)"
-                                        class="flex items-center gap-1 rounded bg-neutral-100 border border-neutral-200 px-2 py-1 text-[10px] font-semibold text-neutral-600 hover:text-neutral-900 hover:bg-neutral-200 transition-colors"
-                                        title="Cetak Struk Termal & Label Tag"
-                                    >
-                                        <Printer class="h-3 w-3 text-neutral-600" />
-                                        <span>Cetak</span>
-                                    </button>
-
-                                    <button
-                                        v-if="item.defect_notes"
-                                        type="button"
-                                        @click="openDefectModal(item)"
-                                        class="flex items-center gap-1 rounded bg-amber-50 border border-amber-200 px-2 py-1 text-[10px] font-bold text-amber-700 hover:bg-amber-100"
-                                        title="Ada catatan noda/cacat awal"
-                                    >
-                                        <AlertTriangle class="h-3 w-3 text-amber-600" />
-                                        <span>Defect</span>
-                                    </button>
-                                </div>
-                            </div>
-
-                            <!-- Shoe Model & Service Badge -->
-                            <div class="mt-3">
-                                <h4 class="text-sm font-bold text-neutral-900 line-clamp-1">{{ item.shoe_brand_model }}</h4>
-                                <div class="mt-1 flex flex-wrap items-center gap-1.5">
-                                    <span class="rounded bg-[#6B0B23] px-2 py-0.5 text-[10px] font-bold text-white">
-                                        {{ item.service?.service_name || 'Layanan' }}
-                                    </span>
-                                    <span class="text-[11px] text-neutral-500">
-                                        {{ item.shoe_material }} <span v-if="item.shoe_color">• {{ item.shoe_color }}</span>
-                                    </span>
-                                </div>
-                            </div>
-
-                            <!-- Customer & Technician Info -->
-                            <div class="mt-3 rounded-xl bg-neutral-50 p-2.5 text-xs text-neutral-600">
-                                <div class="flex items-center justify-between">
-                                    <span class="text-neutral-400">Pemilik:</span>
-                                    <span class="font-semibold text-neutral-800">{{ item.customer_name || '-' }}</span>
-                                </div>
-                                <div class="mt-1 flex items-center justify-between">
-                                    <span class="text-neutral-400">Teknisi Pos:</span>
-                                    <span class="font-medium text-neutral-700 flex items-center gap-1">
-                                        <User class="h-3 w-3 text-neutral-400" />
-                                        {{ item.technician?.name || 'Belum ditugaskan' }}
-                                    </span>
-                                </div>
-                            </div>
-
-                            <!-- Target SLA -->
-                            <div class="mt-3 flex items-center justify-between text-xs">
-                                <div class="flex items-center gap-1 text-neutral-400">
-                                    <Clock class="h-3 w-3" />
-                                    <span>Target SLA:</span>
-                                </div>
-                                <span class="rounded-full px-2.5 py-0.5 text-[10px]" :class="getSlaBadgeClass(item.sla_status)">
-                                    {{ item.sla_text }}
-                                </span>
-                            </div>
-                        </div>
-
-                        <!-- 1-Klik Action Button Transition with Workstation Guard -->
-                        <div class="mt-4 border-t border-neutral-100 pt-3">
-                            <!-- Pos QC: Buka Lembar QC Modal -->
-                            <template v-if="activeTab === 'qc'">
-                                <button
-                                    type="button"
-                                    @click="canOperateStation('QC_INSPECTION') && openQcModal(item)"
-                                    :disabled="updatingItemId === item.id || !canOperateStation('QC_INSPECTION')"
-                                    :class="[
-                                        'flex w-full items-center justify-center gap-2 rounded-xl py-2.5 text-xs font-bold shadow-xs transition',
-                                        !canOperateStation('QC_INSPECTION')
-                                            ? 'bg-neutral-200 text-neutral-400 cursor-not-allowed opacity-60'
-                                            : 'bg-emerald-700 hover:bg-emerald-800 text-white'
-                                    ]"
-                                >
-                                    <Lock v-if="!canOperateStation('QC_INSPECTION')" class="h-4 w-4" />
-                                    <ShieldCheck v-else class="h-4 w-4" />
-                                    <span>{{ !canOperateStation('QC_INSPECTION') ? 'Hanya Petugas Pos Terkait' : 'Buka Lembar QC' }}</span>
-                                </button>
-                                <div
-                                    v-if="!canOperateStation('QC_INSPECTION')"
-                                    class="mt-1.5 flex items-center justify-center gap-1 text-[10px] text-amber-700 bg-amber-50 rounded-lg py-1 px-2 border border-amber-200/60 text-center"
-                                >
-                                    <Lock class="w-3 h-3 text-amber-600 flex-shrink-0" />
-                                    <span>Mode Pantau (Hanya petugas pos terkait yang dapat memindahkan)</span>
-                                </div>
-                            </template>
-
-                            <!-- Pos Dryer: Kirim ke Pos QC -->
-                            <template v-else-if="activeTab === 'dry'">
-                                <button
-                                    type="button"
-                                    @click="canOperateStation('DRYING') && updateStatus(item, 'QC_INSPECTION')"
-                                    :disabled="updatingItemId === item.id || !canOperateStation('DRYING')"
-                                    :class="[
-                                        'flex w-full items-center justify-center gap-2 rounded-xl py-2.5 text-xs font-bold shadow-xs transition',
-                                        !canOperateStation('DRYING')
-                                            ? 'bg-neutral-200 text-neutral-400 cursor-not-allowed opacity-60'
-                                            : 'bg-indigo-600 hover:bg-indigo-700 text-white'
-                                    ]"
-                                >
-                                    <Lock v-if="!canOperateStation('DRYING')" class="h-4 w-4" />
-                                    <ShieldCheck v-else class="h-4 w-4" />
-                                    <span>{{ !canOperateStation('DRYING') ? 'Hanya Petugas Pos Terkait' : (updatingItemId === item.id ? 'Memproses...' : 'Kirim ke Pos QC') }}</span>
-                                </button>
-                                <div
-                                    v-if="!canOperateStation('DRYING')"
-                                    class="mt-1.5 flex items-center justify-center gap-1 text-[10px] text-amber-700 bg-amber-50 rounded-lg py-1 px-2 border border-amber-200/60 text-center"
-                                >
-                                    <Lock class="w-3 h-3 text-amber-600 flex-shrink-0" />
-                                    <span>Mode Pantau (Hanya petugas pos terkait yang dapat memindahkan)</span>
-                                </div>
-                            </template>
-
-                            <!-- Pos Siap Antar: Selesaikan Pesanan -->
-                            <template v-else-if="activeTab === 'ready'">
-                                <button
-                                    type="button"
-                                    @click="canOperateStation('READY_DELIVERY') && updateStatus(item, 'DELIVERED', 'Pesanan selesai & diserahkan')"
-                                    :disabled="updatingItemId === item.id || !canOperateStation('READY_DELIVERY')"
-                                    :class="[
-                                        'flex w-full items-center justify-center gap-2 rounded-xl py-2.5 text-xs font-bold shadow-xs transition',
-                                        !canOperateStation('READY_DELIVERY')
-                                            ? 'bg-neutral-200 text-neutral-400 cursor-not-allowed opacity-60'
-                                            : 'bg-rose-700 hover:bg-rose-800 text-white'
-                                    ]"
-                                >
-                                    <Lock v-if="!canOperateStation('READY_DELIVERY')" class="h-4 w-4" />
-                                    <CheckCircle2 v-else class="h-4 w-4" />
-                                    <span>{{ !canOperateStation('READY_DELIVERY') ? 'Hanya Petugas Pos Terkait' : (updatingItemId === item.id ? 'Memproses...' : 'Selesaikan Pesanan') }}</span>
-                                </button>
-                                <div
-                                    v-if="!canOperateStation('READY_DELIVERY')"
-                                    class="mt-1.5 flex items-center justify-center gap-1 text-[10px] text-amber-700 bg-amber-50 rounded-lg py-1 px-2 border border-amber-200/60 text-center"
-                                >
-                                    <Lock class="w-3 h-3 text-amber-600 flex-shrink-0" />
-                                    <span>Mode Pantau (Hanya petugas pos terkait yang dapat memindahkan)</span>
-                                </div>
-                            </template>
-                        </div>
-                    </div>
-                </div>
+                <!-- Stasiun Siap Antar Spesifik -->
+                <StationReady
+                    v-else-if="activeTab === 'ready'"
+                    :items="grouped_items.READY_DELIVERY"
+                    :can-operate="canOperateStation('READY_DELIVERY')"
+                    :processing-item-id="updatingItemId"
+                    :is-overview="false"
+                    @advance="handleAdvance"
+                    @open-print="openPrintModal"
+                    @view-defect="openDefectModal"
+                />
             </div>
         </div>
 

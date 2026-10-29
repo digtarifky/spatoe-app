@@ -35,7 +35,7 @@ class WorkshopController extends Controller
                     $photoQuery->whereIn('photo_type', ['BEFORE', 'DEFECT'])
                         ->select(['id', 'order_item_id', 'photo_type', 'photo_path', 'created_at']);
                 },
-                'qc:id,order_item_id,qc_passed',
+                'qc:id,order_item_id,qc_passed,qc_notes',
             ]);
 
         if ($search !== '') {
@@ -100,6 +100,7 @@ class WorkshopController extends Controller
                 'qc' => $item->qc ? [
                     'id' => $item->qc->id,
                     'qc_passed' => (bool) $item->qc->qc_passed,
+                    'qc_notes' => $item->qc->qc_notes,
                 ] : null,
                 'photos' => $item->photos->map(fn ($photo) => [
                     'id' => $photo->id,
