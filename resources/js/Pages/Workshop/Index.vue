@@ -352,11 +352,11 @@ const stationDetails = computed(() => {
         <Head title="Workshop Floor - Antrean Cuci" />
 
         <div class="min-h-screen bg-neutral-100/70 pb-16">
-            <!-- Header Workshop & Mini Metrics (Satu Baris Terpadu) -->
+            <!-- Header Workshop & Mini Metrics -->
             <div class="border-b border-neutral-200 bg-white shadow-xs">
-                <div class="mx-auto max-w-7xl px-4 py-5 sm:px-6 lg:px-8">
-                    <!-- Baris Terpadu: Judul di Kiri, Metrik & Tombol Aksi di Kanan -->
-                    <div class="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
+                <div class="mx-auto max-w-7xl px-4 py-5 sm:px-6 lg:px-8 space-y-4">
+                    <!-- Baris 1: Judul di Kiri, 3 Kartu Metrik Sejajar di Pojok Kanan Atas -->
+                    <div class="flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
                         <div>
                             <div class="flex items-center gap-2.5">
                                 <span class="h-3 w-3 rounded-full bg-[#6B0B23]" />
@@ -370,8 +370,8 @@ const stationDetails = computed(() => {
                             </p>
                         </div>
 
-                        <!-- Metrik Antrean & Tombol Aksi (Di Sebelah Kanan) -->
-                        <div class="flex flex-wrap items-center gap-2 sm:gap-3">
+                        <!-- 3 Kartu Metrik Sejajar Mentok di Sudut Kanan Atas -->
+                        <div class="flex items-center gap-2 sm:gap-3 flex-shrink-0">
                             <!-- Metrik: Total Workshop -->
                             <div class="flex items-center gap-2.5 rounded-xl border border-neutral-200 bg-neutral-50 px-3 py-1.5 shadow-2xs">
                                 <div class="rounded-lg bg-neutral-200/80 p-1.5 text-neutral-700">
@@ -404,39 +404,20 @@ const stationDetails = computed(() => {
                                     <p class="text-xs font-extrabold text-rose-900">{{ metrics.urgent_count }} <span class="text-[10px] font-normal text-rose-700">pasang</span></p>
                                 </div>
                             </div>
-
-                            <!-- Tombol Atur Shift Teknisi (Admin & Supervisor Only) -->
-                            <button
-                                v-if="isAdmin"
-                                type="button"
-                                @click="stationModalOpen = true"
-                                class="inline-flex items-center gap-1.5 rounded-xl border border-neutral-300 bg-white px-3 py-2 text-xs font-bold text-neutral-700 shadow-2xs transition hover:bg-neutral-50 hover:text-neutral-900"
-                            >
-                                <Users class="h-3.5 w-3.5 text-[#6B0B23]" />
-                                <span>Atur Shift Teknisi</span>
-                            </button>
-
-                            <!-- Tombol Intake Kasir Baru -->
-                            <Link
-                                :href="route('workshop.checkin')"
-                                class="inline-flex items-center gap-1.5 rounded-xl bg-[#6B0B23] px-3.5 py-2 text-xs font-bold text-white shadow-xs transition hover:bg-[#54081B]"
-                            >
-                                <Plus class="h-3.5 w-3.5" />
-                                <span>+ Intake Kasir Baru</span>
-                            </Link>
                         </div>
                     </div>
 
-                    <!-- Filter Pos Kerja di Atas (Assembly Line Tabs) Tepat di Bawah Kartu Ringkasan -->
-                    <div class="mt-4 border-t border-neutral-100 pt-3">
-                        <div class="flex items-center gap-2 overflow-x-auto pb-1 scrollbar-none">
+                    <!-- Baris 2: Toolbar Filter Stasiun (Kiri) & Tombol Aksi (Kanan) -->
+                    <div class="border-t border-neutral-100 pt-3.5 flex flex-col md:flex-row md:items-center md:justify-between gap-3">
+                        <!-- Sisi Kiri: Tab Pill Filter Stasiun Kerja (Assembly Line) -->
+                        <div class="flex items-center gap-2 overflow-x-auto pb-1 scrollbar-none min-w-0 flex-1">
                             <button
                                 v-for="tab in WORKSTATION_TABS"
                                 :key="tab.key"
                                 type="button"
                                 @click="activeTab = tab.key"
                                 :class="[
-                                    'flex items-center gap-2 px-3.5 py-2 rounded-xl text-xs font-bold transition-all whitespace-nowrap shadow-2xs',
+                                    'flex items-center gap-2 px-3.5 py-2 rounded-xl text-xs font-bold transition-all whitespace-nowrap shadow-2xs flex-shrink-0',
                                     activeTab === tab.key
                                         ? 'bg-[#6B0B23] text-white shadow-sm ring-2 ring-[#6B0B23]/20'
                                         : 'bg-white border border-neutral-200 text-neutral-600 hover:text-neutral-900 hover:bg-neutral-50'
@@ -455,6 +436,29 @@ const stationDetails = computed(() => {
                                     {{ stationCounts[tab.key] }}
                                 </span>
                             </button>
+                        </div>
+
+                        <!-- Sisi Kanan: Tombol Aksi Sejajar Horizontal di Pojok Kanan -->
+                        <div class="flex items-center gap-2.5 flex-shrink-0">
+                            <!-- Tombol Atur Shift Teknisi (Admin & Supervisor Only) -->
+                            <button
+                                v-if="isAdmin"
+                                type="button"
+                                @click="stationModalOpen = true"
+                                class="inline-flex items-center gap-1.5 rounded-xl border border-neutral-300 bg-white px-3.5 py-2 text-xs font-bold text-neutral-700 shadow-2xs transition hover:bg-neutral-50 hover:text-neutral-900 whitespace-nowrap"
+                            >
+                                <Users class="h-3.5 w-3.5 text-[#6B0B23]" />
+                                <span>Atur Shift Teknisi</span>
+                            </button>
+
+                            <!-- Tombol + Terima Sepatu Baru -->
+                            <Link
+                                :href="route('workshop.checkin')"
+                                class="inline-flex items-center gap-1.5 rounded-xl bg-[#6B0B23] px-3.5 py-2 text-xs font-bold text-white shadow-xs transition hover:bg-[#54081B] whitespace-nowrap"
+                            >
+                                <Plus class="h-3.5 w-3.5" />
+                                <span>Terima Sepatu Baru</span>
+                            </Link>
                         </div>
                     </div>
                 </div>

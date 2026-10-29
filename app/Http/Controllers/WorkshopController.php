@@ -124,9 +124,7 @@ class WorkshopController extends Controller
 
         $staffList = [];
         if ($isAdminOrSupervisor) {
-            $staffList = User::query()
-                ->where('role', 'technician')
-                ->where('is_active', true)
+            $staffList = User::where('role', 'technician')
                 ->select(['id', 'name', 'email', 'role', 'assigned_station'])
                 ->orderBy('name')
                 ->get()
