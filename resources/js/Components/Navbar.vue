@@ -10,6 +10,7 @@ import {
     ShieldCheck,
     Truck,
     LayoutGrid,
+    Receipt,
 } from 'lucide-vue-next';
 
 const props = defineProps({
@@ -37,12 +38,12 @@ watch(
     }
 );
 
-// Tampilkan search bar jika user terautentikasi dan berada di rute workshop (atau diaktifkan via prop)
+// Tampilkan search bar jika user terautentikasi dan berada di rute workshop / kasir
 const isSearchVisible = computed(() => {
     if (!user.value) return false;
     if (props.showSearch !== null) return props.showSearch;
     try {
-        return Boolean(route().current('workshop.*'));
+        return Boolean(route().current('workshop.*') || route().current('cashier.*'));
     } catch {
         return false;
     }
@@ -63,6 +64,12 @@ const onSearchSubmit = () => {
                 { search: localSearch.value },
                 { preserveState: true, preserveScroll: true, replace: true }
             );
+        } else if (route().current('cashier.*')) {
+            router.get(
+                route('cashier.index'),
+                { search: localSearch.value },
+                { preserveState: true, preserveScroll: true, replace: true }
+            );
         }
     } catch {
         // Fallback jika route helper tidak tersedia
@@ -80,6 +87,12 @@ const clearSearch = () => {
                 { search: '' },
                 { preserveState: true, preserveScroll: true, replace: true }
             );
+        } else if (route().current('cashier.*')) {
+            router.get(
+                route('cashier.index'),
+                { search: '' },
+                { preserveState: true, preserveScroll: true, replace: true }
+            );
         }
     } catch {
         // Fallback
@@ -90,6 +103,8 @@ const roleLabel = computed(() => {
     switch (user.value?.role) {
         case 'admin':
             return 'Administrator';
+        case 'cashier':
+            return 'Kasir / Front Desk';
         case 'technician':
             return 'Teknisi Workshop';
         case 'courier':
@@ -108,6 +123,14 @@ const dutyBadge = computed(() => {
             label: 'Semua Pos (Admin)',
             icon: LayoutGrid,
             badgeClass: 'bg-[#6B0B23]/10 text-[#6B0B23] border-[#6B0B23]/20',
+        };
+    }
+
+    if (user.value.role === 'cashier') {
+        return {
+            label: 'Front Desk & Kasir',
+            icon: Receipt,
+            badgeClass: 'bg-emerald-50 text-emerald-800 border-emerald-200',
         };
     }
 
@@ -185,6 +208,31 @@ const dutyBadge = computed(() => {
                         <X class="h-3.5 w-3.5" />
                     </button>
                 </form>
+                <!-- Navigation Switcher untuk Admin: Kasir vs Workshop -->
+                <nav v-if="user && ['admin', 'supervisor'].includes(user.role)" class="hidden md:flex items-center gap-1 bg-neutral-100 p-1 rounded-xl border border-neutral-200">
+                    <Link
+                        :href="route('cashier.index')"
+                        :class="[
+                            'px-3 py-1 text-xs font-bold rounded-lg transition-all',
+                            route().current('cashier.*')
+                                ? 'bg-white text-[#6B0B23] shadow-2xs font-extrabold'
+                                : 'text-neutral-600 hover:text-neutral-900'
+                        ]"
+                    >
+                        Kasir
+                    </Link>
+                    <Link
+                        :href="route('workshop.index')"
+                        :class="[
+                            'px-3 py-1 text-xs font-bold rounded-lg transition-all',
+                            route().current('workshop.*')
+                                ? 'bg-white text-[#6B0B23] shadow-2xs font-extrabold'
+                                : 'text-neutral-600 hover:text-neutral-900'
+                        ]"
+                    >
+                        Workshop
+                    </Link>
+                </nav>
             </div>
 
             <!-- Right Area: Only Visible When User is Authenticated -->

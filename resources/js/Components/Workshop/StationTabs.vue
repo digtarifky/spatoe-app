@@ -98,8 +98,9 @@ const WORKSTATION_TABS = [
                     <span>Atur Shift Teknisi</span>
                 </button>
 
-                <!-- Tombol + Terima Sepatu Baru -->
+                <!-- Tombol + Terima Sepatu Baru (Hanya untuk Admin, Supervisor, Kasir - Disembunyikan dari Teknisi) -->
                 <Link
+                    v-if="$page.props.auth?.user?.role !== 'technician'"
                     :href="route('workshop.checkin')"
                     class="inline-flex items-center gap-1.5 rounded-xl bg-[#6B0B23] px-3.5 py-2 text-xs font-bold text-white shadow-xs transition hover:bg-[#54081B] whitespace-nowrap"
                 >

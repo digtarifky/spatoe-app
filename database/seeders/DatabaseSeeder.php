@@ -56,6 +56,17 @@ class DatabaseSeeder extends Seeder
             ]
         );
 
+        User::updateOrCreate(
+            ['email' => 'kasir@spatoe.com'],
+            [
+                'name' => 'Kasir Spatoe',
+                'password' => Hash::make('password123'),
+                'role' => 'cashier',
+                'phone_number' => '081234567893',
+                'is_active' => true,
+            ]
+        );
+
         // 2. Master Layanan
         $services = [
             [

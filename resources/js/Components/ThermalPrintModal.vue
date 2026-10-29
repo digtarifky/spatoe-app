@@ -27,8 +27,8 @@ const emit = defineEmits(['close']);
 
 const page = usePage();
 const currentUser = computed(() => page.props.auth?.user || {});
-// Hanya admin dan supervisor yang diizinkan mencetak struk nota keuangan kasir
-const canPrintReceipt = computed(() => ['admin', 'supervisor'].includes(currentUser.value?.role));
+// Admin, supervisor, dan kasir diizinkan mencetak struk nota kasir; teknisi hanya tag rak
+const canPrintReceipt = computed(() => ['admin', 'supervisor', 'cashier'].includes(currentUser.value?.role));
 
 // Print Configuration State
 const printMode = ref(canPrintReceipt.value ? 'receipt' : 'shelf_tag'); // 'receipt' | 'shelf_tag'

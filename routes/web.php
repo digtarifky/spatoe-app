@@ -1,5 +1,6 @@
 <?php
 
+use App\Http\Controllers\CashierController;
 use App\Http\Controllers\ProfileController;
 use App\Http\Controllers\TrackingController;
 use App\Http\Controllers\WorkshopCheckInController;
@@ -16,12 +17,21 @@ Route::get('/tracking', [TrackingController::class, 'index'])->name('tracking.in
 // Protected Routes (Internal Staff & Admin)
 Route::middleware(['auth', 'verified'])->group(function () {
     Route::get('/dashboard', function () {
+        $user = auth()->user();
+        if ($user && $user->role === 'cashier') {
+            return redirect()->route('cashier.index');
+        }
+
         return redirect()->route('workshop.index');
     })->name('dashboard');
 
     Route::get('/profile', [ProfileController::class, 'edit'])->name('profile.edit');
     Route::patch('/profile', [ProfileController::class, 'update'])->name('profile.update');
     Route::delete('/profile', [ProfileController::class, 'destroy'])->name('profile.destroy');
+
+    // Kasir / Front Desk
+    Route::get('/cashier', [CashierController::class, 'index'])->name('cashier.index');
+    Route::post('/cashier/items/{item}/handover', [CashierController::class, 'handover'])->name('cashier.items.handover');
 
     // Workshop Floor (Kanban Board)
     Route::get('/workshop', [WorkshopController::class, 'index'])->name('workshop.index');
