@@ -204,4 +204,3 @@ class CashierController extends Controller
         return back()->with('success', "Sepatu [{$item->item_tag_code}] berhasil diserahkan ke pelanggan dan nota dinyatakan lunas.");
     }
 }
-

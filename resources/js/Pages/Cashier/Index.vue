@@ -1,5 +1,5 @@
 <script setup>
-import { ref, computed } from 'vue';
+import { ref } from 'vue';
 import { Head, router, Link } from '@inertiajs/vue3';
 import AuthenticatedLayout from '@/Layouts/AuthenticatedLayout.vue';
 import ThermalPrintModal from '@/Components/ThermalPrintModal.vue';
@@ -14,10 +14,6 @@ import {
     AlertCircle,
     User,
     Phone,
-    CreditCard,
-    ArrowRight,
-    Search,
-    X,
     AlertTriangle,
 } from 'lucide-vue-next';
 
@@ -134,57 +130,64 @@ const confirmHandover = () => {
     );
 };
 
-const getWorkshopStatusBadge = (status) => {
+const getWorkshopStatusConfig = (status) => {
     switch (status) {
         case 'CHECKED_IN':
             return {
                 label: 'Antrean Masuk',
-                badgeClass: 'bg-amber-100 text-amber-900 border-amber-300',
+                badgeClass: 'bg-amber-50 text-amber-800 border-amber-200',
+                dotClass: 'bg-amber-500',
             };
         case 'WASHING':
             return {
                 label: 'Sedang Dicuci & Sikat',
-                badgeClass: 'bg-blue-100 text-blue-900 border-blue-300',
+                badgeClass: 'bg-blue-50 text-blue-800 border-blue-200',
+                dotClass: 'bg-blue-500',
             };
         case 'DRYING':
             return {
                 label: 'Pos Pengeringan',
-                badgeClass: 'bg-indigo-100 text-indigo-900 border-indigo-300',
+                badgeClass: 'bg-indigo-50 text-indigo-800 border-indigo-200',
+                dotClass: 'bg-indigo-500',
             };
         case 'QC_INSPECTION':
             return {
-                label: 'Pemeriksaan QC',
-                badgeClass: 'bg-purple-100 text-purple-900 border-purple-300',
+                label: 'Inspeksi QC',
+                badgeClass: 'bg-purple-50 text-purple-800 border-purple-200',
+                dotClass: 'bg-purple-500',
             };
         case 'READY_DELIVERY':
             return {
                 label: 'Siap Diambil',
-                badgeClass: 'bg-emerald-100 text-emerald-900 border-emerald-300 font-bold animate-pulse',
+                badgeClass: 'bg-emerald-50 text-emerald-800 border-emerald-300 font-bold',
+                dotClass: 'bg-emerald-500 animate-pulse',
             };
         case 'DELIVERED':
             return {
                 label: 'Telah Diserahkan',
-                badgeClass: 'bg-neutral-100 text-neutral-700 border-neutral-300',
+                badgeClass: 'bg-neutral-50 text-neutral-700 border-neutral-200',
+                dotClass: 'bg-neutral-400',
             };
         default:
             return {
                 label: status || 'Diproses',
-                badgeClass: 'bg-neutral-100 text-neutral-700 border-neutral-200',
+                badgeClass: 'bg-neutral-50 text-neutral-700 border-neutral-200',
+                dotClass: 'bg-neutral-400',
             };
     }
 };
 
-const getSlaBadgeClass = (slaStatus) => {
-    switch (slaStatus) {
-        case 'overdue':
-            return 'bg-red-500 text-white font-bold';
-        case 'urgent':
-            return 'bg-amber-400 text-amber-950 font-bold';
-        case 'warning':
-            return 'bg-amber-100 text-amber-800 font-medium';
-        default:
-            return 'bg-emerald-100 text-emerald-800 font-medium';
+const formatSlaText = (item) => {
+    if (item.sla_status === 'overdue') {
+        return (item.sla_text || '').replace('Terlambat ', 'Telat ');
     }
+    return item.sla_text || '-';
+};
+
+const hasDefectNotes = (notes) => {
+    if (!notes) return false;
+    const trimmed = notes.trim();
+    return trimmed !== '' && trimmed !== '-';
 };
 </script>
 
@@ -197,95 +200,75 @@ const getSlaBadgeClass = (slaStatus) => {
         <Head title="Kasir & Front Desk - Spatoe" />
 
         <div class="min-h-screen bg-neutral-100/70 pb-16">
-            <!-- Top Header & Mini Metrics -->
+            <!-- Header Ringkas & Toolbar Terpadu -->
             <div class="border-b border-neutral-200 bg-white shadow-xs">
-                <div class="mx-auto max-w-7xl px-4 py-6 sm:px-6 lg:px-8 space-y-6">
-                    <!-- Baris Atas: Judul & Tombol Utama + Terima Sepatu Baru -->
-                    <div class="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
-                        <div>
-                            <div class="flex items-center gap-2.5">
-                                <span class="h-3.5 w-3.5 rounded-full bg-[#6B0B23]" />
-                                <h1 class="text-2xl sm:text-3xl font-black tracking-tight text-neutral-900">
-                                    Front Desk & Kasir
-                                </h1>
-                                <span class="text-xs font-semibold text-neutral-400 hidden sm:inline">/ Manajemen Antrean & Serah Terima</span>
-                            </div>
-                            <p class="mt-1 text-xs sm:text-sm text-neutral-500 max-w-2xl">
-                                Kelola intake sepatu pelanggan walk-in, pantau progres pengerjaan workshop, dan proses serah terima pengambilan sepatu.
-                            </p>
-                        </div>
-
-                        <!-- Tombol Primer: + Terima Sepatu Baru -->
-                        <Link
-                            :href="route('workshop.checkin')"
-                            class="inline-flex items-center justify-center gap-2 rounded-2xl bg-[#6B0B23] px-6 py-3.5 text-sm font-extrabold text-white shadow-md transition hover:bg-[#54081B] active:scale-98 whitespace-nowrap cursor-pointer"
-                        >
-                            <Plus class="h-5 w-5 stroke-[2.5]" />
-                            <span>Terima Sepatu Baru</span>
-                        </Link>
-                    </div>
-
-                    <!-- 4 Kartu Ringkasan Metrik Kasir -->
-                    <div class="grid grid-cols-2 gap-3 sm:grid-cols-4 sm:gap-4">
+                <div class="mx-auto max-w-7xl px-4 py-4 sm:px-6 lg:px-8 space-y-3.5">
+                    <!-- 4 Kotak Ringkasan Metrik Kompak (1 Baris Horizontal: grid-cols-2 lg:grid-cols-4) -->
+                    <div class="grid grid-cols-2 lg:grid-cols-4 gap-3">
                         <!-- Metrik 1: Masuk Hari Ini -->
-                        <div class="rounded-2xl border border-neutral-200 bg-white p-4 shadow-2xs">
-                            <div class="flex items-center justify-between">
-                                <span class="text-[11px] font-bold uppercase tracking-wider text-neutral-400">Masuk Hari Ini</span>
-                                <div class="rounded-xl bg-neutral-100 p-2 text-neutral-700">
-                                    <PackagePlus class="h-4 w-4" />
-                                </div>
+                        <div class="flex items-center justify-between rounded-xl border border-neutral-200 bg-white p-3 shadow-2xs">
+                            <div class="min-w-0">
+                                <span class="text-[10px] font-bold uppercase tracking-wider text-neutral-400 block truncate">Masuk Hari Ini</span>
+                                <p class="text-base font-black text-neutral-900 leading-tight mt-0.5">
+                                    {{ metrics.today_in }} <span class="text-[10px] font-normal text-neutral-500">pasang</span>
+                                </p>
                             </div>
-                            <p class="mt-2 text-2xl font-black text-neutral-900">{{ metrics.today_in }}</p>
-                            <p class="text-[11px] text-neutral-500">pasang sepatu intake</p>
+                            <div class="w-9 h-9 rounded-xl bg-neutral-100 flex items-center justify-center text-neutral-700 shrink-0">
+                                <PackagePlus class="h-4 w-4" />
+                            </div>
                         </div>
 
-                        <!-- Metrik 2: Sedang di Workshop -->
-                        <div class="rounded-2xl border border-blue-200 bg-blue-50/40 p-4 shadow-2xs">
-                            <div class="flex items-center justify-between">
-                                <span class="text-[11px] font-bold uppercase tracking-wider text-blue-600">Di Workshop</span>
-                                <div class="rounded-xl bg-blue-100 p-2 text-blue-700">
-                                    <Sparkles class="h-4 w-4" />
-                                </div>
+                        <!-- Metrik 2: Di Workshop -->
+                        <div class="flex items-center justify-between rounded-xl border border-blue-200 bg-blue-50/40 p-3 shadow-2xs">
+                            <div class="min-w-0">
+                                <span class="text-[10px] font-bold uppercase tracking-wider text-blue-600 block truncate">Di Workshop</span>
+                                <p class="text-base font-black text-blue-900 leading-tight mt-0.5">
+                                    {{ metrics.in_workshop }} <span class="text-[10px] font-normal text-blue-600">pasang</span>
+                                </p>
                             </div>
-                            <p class="mt-2 text-2xl font-black text-blue-900">{{ metrics.in_workshop }}</p>
-                            <p class="text-[11px] text-blue-700">sedang dicuci / dikeringkan</p>
+                            <div class="w-9 h-9 rounded-xl bg-blue-100 flex items-center justify-center text-blue-700 shrink-0">
+                                <Sparkles class="h-4 w-4" />
+                            </div>
                         </div>
 
                         <!-- Metrik 3: Siap Diambil Pelanggan -->
-                        <div class="rounded-2xl border border-emerald-300 bg-emerald-50/60 p-4 shadow-2xs">
-                            <div class="flex items-center justify-between">
-                                <span class="text-[11px] font-bold uppercase tracking-wider text-emerald-700">Siap Diambil</span>
-                                <div class="rounded-xl bg-emerald-200/80 p-2 text-emerald-800">
-                                    <CheckCircle2 class="h-4 w-4" />
-                                </div>
+                        <div class="flex items-center justify-between rounded-xl border border-emerald-300 bg-emerald-50/60 p-3 shadow-2xs">
+                            <div class="min-w-0">
+                                <span class="text-[10px] font-bold uppercase tracking-wider text-emerald-700 block truncate">Siap Diambil</span>
+                                <p class="text-base font-black text-emerald-950 leading-tight mt-0.5">
+                                    {{ metrics.ready_pickup }} <span class="text-[10px] font-normal text-emerald-700">pasang</span>
+                                </p>
                             </div>
-                            <p class="mt-2 text-2xl font-black text-emerald-950">{{ metrics.ready_pickup }}</p>
-                            <p class="text-[11px] font-semibold text-emerald-800">siap serah terima kasir</p>
+                            <div class="w-9 h-9 rounded-xl bg-emerald-200/80 flex items-center justify-center text-emerald-800 shrink-0">
+                                <CheckCircle2 class="h-4 w-4" />
+                            </div>
                         </div>
 
                         <!-- Metrik 4: Selesai Hari Ini -->
-                        <div class="rounded-2xl border border-neutral-200 bg-neutral-50 p-4 shadow-2xs">
-                            <div class="flex items-center justify-between">
-                                <span class="text-[11px] font-bold uppercase tracking-wider text-neutral-400">Selesai Hari Ini</span>
-                                <div class="rounded-xl bg-neutral-200/80 p-2 text-neutral-700">
-                                    <Check class="h-4 w-4" />
-                                </div>
+                        <div class="flex items-center justify-between rounded-xl border border-neutral-200 bg-neutral-50 p-3 shadow-2xs">
+                            <div class="min-w-0">
+                                <span class="text-[10px] font-bold uppercase tracking-wider text-neutral-400 block truncate">Selesai Hari Ini</span>
+                                <p class="text-base font-black text-neutral-900 leading-tight mt-0.5">
+                                    {{ metrics.completed_today }} <span class="text-[10px] font-normal text-neutral-500">pasang</span>
+                                </p>
                             </div>
-                            <p class="mt-2 text-2xl font-black text-neutral-900">{{ metrics.completed_today }}</p>
-                            <p class="text-[11px] text-neutral-500">telah diambil pelanggan</p>
+                            <div class="w-9 h-9 rounded-xl bg-neutral-200/80 flex items-center justify-center text-neutral-700 shrink-0">
+                                <Check class="h-4 w-4" />
+                            </div>
                         </div>
                     </div>
 
-                    <!-- Toolbar Filter Tab Status -->
-                    <div class="border-t border-neutral-100 pt-4 flex flex-wrap items-center justify-between gap-3">
-                        <div class="flex items-center gap-2 overflow-x-auto pb-1 scrollbar-none">
+                    <!-- Toolbar Baris 2: Tab Filter Status (Kiri) & Tombol + Terima Sepatu Baru (Kanan) -->
+                    <div class="border-t border-neutral-100 pt-3 flex flex-col md:flex-row md:items-center md:justify-between gap-3">
+                        <!-- Sisi Kiri: Tab Filter Status -->
+                        <div class="flex items-center gap-2 overflow-x-auto pb-1 scrollbar-none flex-1 min-w-0">
                             <button
                                 type="button"
                                 @click="setTab('READY')"
                                 :class="[
-                                    'flex items-center gap-2 px-4 py-2 rounded-xl text-xs font-bold transition-all shadow-2xs whitespace-nowrap cursor-pointer',
+                                    'flex items-center gap-2 px-3.5 py-2 rounded-xl text-xs font-bold transition-all shadow-2xs whitespace-nowrap cursor-pointer',
                                     activeTab === 'READY'
-                                        ? 'bg-[#6B0B23] text-white ring-2 ring-[#6B0B23]/20'
+                                        ? 'bg-[#6B0B23] text-white ring-2 ring-[#6B0B23]/20 shadow-xs'
                                         : 'bg-white border border-neutral-200 text-neutral-600 hover:bg-neutral-50 hover:text-neutral-900'
                                 ]"
                             >
@@ -305,9 +288,9 @@ const getSlaBadgeClass = (slaStatus) => {
                                 type="button"
                                 @click="setTab('WORKSHOP')"
                                 :class="[
-                                    'flex items-center gap-2 px-4 py-2 rounded-xl text-xs font-bold transition-all shadow-2xs whitespace-nowrap cursor-pointer',
+                                    'flex items-center gap-2 px-3.5 py-2 rounded-xl text-xs font-bold transition-all shadow-2xs whitespace-nowrap cursor-pointer',
                                     activeTab === 'WORKSHOP'
-                                        ? 'bg-[#6B0B23] text-white ring-2 ring-[#6B0B23]/20'
+                                        ? 'bg-[#6B0B23] text-white ring-2 ring-[#6B0B23]/20 shadow-xs'
                                         : 'bg-white border border-neutral-200 text-neutral-600 hover:bg-neutral-50 hover:text-neutral-900'
                                 ]"
                             >
@@ -327,9 +310,9 @@ const getSlaBadgeClass = (slaStatus) => {
                                 type="button"
                                 @click="setTab('ALL')"
                                 :class="[
-                                    'flex items-center gap-2 px-4 py-2 rounded-xl text-xs font-bold transition-all shadow-2xs whitespace-nowrap cursor-pointer',
+                                    'flex items-center gap-2 px-3.5 py-2 rounded-xl text-xs font-bold transition-all shadow-2xs whitespace-nowrap cursor-pointer',
                                     activeTab === 'ALL'
-                                        ? 'bg-[#6B0B23] text-white ring-2 ring-[#6B0B23]/20'
+                                        ? 'bg-[#6B0B23] text-white ring-2 ring-[#6B0B23]/20 shadow-xs'
                                         : 'bg-white border border-neutral-200 text-neutral-600 hover:bg-neutral-50 hover:text-neutral-900'
                                 ]"
                             >
@@ -337,9 +320,15 @@ const getSlaBadgeClass = (slaStatus) => {
                             </button>
                         </div>
 
-                        <!-- Info Total Ditampilkan -->
-                        <div class="text-xs font-semibold text-neutral-500">
-                            Menampilkan <span class="font-bold text-neutral-900">{{ items.length }}</span> sepatu
+                        <!-- Sisi Kanan: Tombol + Terima Sepatu Baru -->
+                        <div class="flex items-center gap-2.5 shrink-0">
+                            <Link
+                                :href="route('workshop.checkin')"
+                                class="inline-flex items-center gap-1.5 rounded-xl bg-[#6B0B23] px-3.5 py-2 text-xs font-bold text-white shadow-xs transition hover:bg-[#54081B] active:scale-98 whitespace-nowrap"
+                            >
+                                <Plus class="h-3.5 w-3.5" />
+                                <span>Terima Sepatu Baru</span>
+                            </Link>
                         </div>
                     </div>
                 </div>
@@ -353,14 +342,14 @@ const getSlaBadgeClass = (slaStatus) => {
                     class="rounded-3xl border border-dashed border-neutral-300 bg-white p-12 text-center shadow-xs"
                 >
                     <CheckCircle2 class="mx-auto h-12 w-12 text-neutral-300 mb-3" />
-                    <h3 class="text-base font-bold text-neutral-800">Tidak ada sepatu dalam daftar antrean</h3>
+                    <h3 class="text-base font-bold text-neutral-800">Tidak ada sepatu dalam antrean</h3>
                     <p class="text-xs text-neutral-500 mt-1 max-w-sm mx-auto">
                         Tidak ada data yang sesuai dengan filter atau kata kunci pencarian saat ini.
                     </p>
                     <div class="mt-5">
                         <Link
                             :href="route('workshop.checkin')"
-                            class="inline-flex items-center gap-2 rounded-xl bg-[#6B0B23] px-4 py-2 text-xs font-bold text-white shadow-xs hover:bg-[#54081B]"
+                            class="inline-flex items-center gap-1.5 rounded-xl bg-[#6B0B23] px-4 py-2 text-xs font-bold text-white shadow-xs hover:bg-[#54081B]"
                         >
                             <Plus class="h-4 w-4" />
                             <span>Terima Sepatu Baru Sekarang</span>
@@ -412,11 +401,11 @@ const getSlaBadgeClass = (slaStatus) => {
                                     <td class="py-3.5 px-4 align-top">
                                         <div class="space-y-0.5">
                                             <p class="font-bold text-neutral-900 flex items-center gap-1">
-                                                <User class="h-3 w-3 text-neutral-400" />
+                                                <User class="h-3 w-3 text-neutral-400 shrink-0" />
                                                 <span>{{ item.customer_name }}</span>
                                             </p>
                                             <p class="text-[11px] text-neutral-500 font-mono flex items-center gap-1">
-                                                <Phone class="h-3 w-3 text-neutral-400" />
+                                                <Phone class="h-3 w-3 text-neutral-400 shrink-0" />
                                                 <span>{{ item.customer_phone }}</span>
                                             </p>
                                         </div>
@@ -424,7 +413,7 @@ const getSlaBadgeClass = (slaStatus) => {
 
                                     <!-- 3. Sepatu & Paket Layanan -->
                                     <td class="py-3.5 px-4 align-top">
-                                        <div class="space-y-1 max-w-[200px]">
+                                        <div class="space-y-1 max-w-[220px]">
                                             <p class="font-bold text-neutral-900 truncate">
                                                 {{ item.shoe_brand_model }}
                                             </p>
@@ -436,9 +425,9 @@ const getSlaBadgeClass = (slaStatus) => {
                                                     {{ [item.shoe_material, item.shoe_color].filter(Boolean).join(' • ') }}
                                                 </span>
                                             </div>
-                                            <!-- Catatan defect jika ada -->
+                                            <!-- Catatan defect jika ada dan bukan kosong/strip -->
                                             <div
-                                                v-if="item.defect_notes"
+                                                v-if="hasDefectNotes(item.defect_notes)"
                                                 class="rounded bg-amber-50 border border-amber-200 px-1.5 py-0.5 text-[9.5px] font-medium text-amber-800 flex items-start gap-1"
                                             >
                                                 <AlertTriangle class="h-3 w-3 text-amber-600 shrink-0 mt-0.5" />
@@ -447,24 +436,46 @@ const getSlaBadgeClass = (slaStatus) => {
                                         </div>
                                     </td>
 
-                                    <!-- 4. Status Workshop & SLA -->
+                                    <!-- 4. Status Workshop (Struktur 2 Baris Rapi) -->
                                     <td class="py-3.5 px-4 align-top">
-                                        <div class="space-y-1.5">
+                                        <div class="space-y-1">
+                                            <!-- Baris 1: Badge Status dengan Status Dot -->
                                             <div>
                                                 <span
-                                                    class="inline-block rounded-full border px-2.5 py-0.5 text-[10px] font-bold shadow-2xs"
-                                                    :class="getWorkshopStatusBadge(item.status).badgeClass"
+                                                    class="inline-flex items-center gap-1.5 rounded-full border px-2.5 py-0.5 text-[10.5px]"
+                                                    :class="getWorkshopStatusConfig(item.status).badgeClass"
                                                 >
-                                                    {{ getWorkshopStatusBadge(item.status).label }}
+                                                    <span
+                                                        class="w-1.5 h-1.5 rounded-full shrink-0"
+                                                        :class="getWorkshopStatusConfig(item.status).dotClass"
+                                                    />
+                                                    <span>{{ getWorkshopStatusConfig(item.status).label }}</span>
                                                 </span>
                                             </div>
-                                            <div class="flex items-center gap-1 text-[10px] text-neutral-400">
-                                                <Clock class="h-3 w-3" />
+
+                                            <!-- Baris 2: Indikator SLA -->
+                                            <div v-if="item.status !== 'DELIVERED'">
+                                                <!-- Jika Terlambat (Overdue) -->
                                                 <span
-                                                    class="rounded-md px-1.5 py-0.2 text-[9.5px]"
-                                                    :class="getSlaBadgeClass(item.sla_status)"
+                                                    v-if="item.sla_status === 'overdue'"
+                                                    class="inline-flex items-center gap-1 rounded-md border border-rose-200 bg-rose-50 px-2 py-0.5 text-[10px] font-bold text-rose-600"
                                                 >
-                                                    {{ item.sla_text }}
+                                                    <AlertTriangle class="h-3 w-3 shrink-0 text-rose-500" />
+                                                    <span>{{ formatSlaText(item) }}</span>
+                                                </span>
+
+                                                <!-- Jika Normal (Urgent / Warning / Safe) -->
+                                                <span
+                                                    v-else-if="item.sla_text"
+                                                    :class="[
+                                                        'inline-flex items-center gap-1 rounded-md border px-2 py-0.5 text-[10px]',
+                                                        item.sla_status === 'urgent'
+                                                            ? 'bg-amber-50 text-amber-900 border-amber-200 font-semibold'
+                                                            : 'bg-neutral-50 text-neutral-600 border-neutral-200 font-medium'
+                                                    ]"
+                                                >
+                                                    <Clock class="h-3 w-3 shrink-0 text-neutral-400" />
+                                                    <span>{{ item.sla_text }}</span>
                                                 </span>
                                             </div>
                                         </div>
@@ -633,4 +644,3 @@ const getSlaBadgeClass = (slaStatus) => {
         />
     </AuthenticatedLayout>
 </template>
-
