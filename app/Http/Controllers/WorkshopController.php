@@ -222,6 +222,41 @@ class WorkshopController extends Controller
                 'notes' => $validated['notes'] ?? "Status dialihkan ke {$newStatus} di lantai workshop",
                 'changed_by' => $technicianId,
             ]);
+
+            // Sinkronisasi data verifikasi QC
+            if ($previousStatus === 'QC_INSPECTION' && $newStatus === 'READY_DELIVERY') {
+                $item->qc()->updateOrCreate(
+                    ['order_item_id' => $item->id],
+                    [
+                        'inspected_by' => $technicianId,
+                        'is_upper_clean' => true,
+                        'is_midsole_clean' => true,
+                        'is_outsole_clean' => true,
+                        'is_completely_dry' => true,
+                        'is_perfumed' => true,
+                        'is_silica_packed' => true,
+                        'qc_passed' => true,
+                        'qc_notes' => $validated['notes'] ?? 'QC Lulus: 6/6 Parameter Kelayakan Mutu Terpenuhi',
+                        'inspected_at' => now(),
+                    ]
+                );
+            } elseif ($previousStatus === 'QC_INSPECTION' && $newStatus === 'WASHING') {
+                $item->qc()->updateOrCreate(
+                    ['order_item_id' => $item->id],
+                    [
+                        'inspected_by' => $technicianId,
+                        'is_upper_clean' => false,
+                        'is_midsole_clean' => false,
+                        'is_outsole_clean' => false,
+                        'is_completely_dry' => false,
+                        'is_perfumed' => false,
+                        'is_silica_packed' => false,
+                        'qc_passed' => false,
+                        'qc_notes' => $validated['notes'] ?? 'QC Ditolak: Dikembalikan ke pos cuci ulang.',
+                        'inspected_at' => now(),
+                    ]
+                );
+            }
         });
 
         return back()->with('success', "Status sepatu {$item->item_tag_code} berhasil diubah ke {$newStatus}.");

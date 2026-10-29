@@ -4,6 +4,7 @@ import { Head, router, Link, usePage } from '@inertiajs/vue3';
 import AuthenticatedLayout from '@/Layouts/AuthenticatedLayout.vue';
 import ThermalPrintModal from '@/Components/ThermalPrintModal.vue';
 import StationAssignmentModal from '@/Components/StationAssignmentModal.vue';
+import QcModal from '@/Components/QcModal.vue';
 import {
     LayoutGrid,
     Printer,
@@ -282,6 +283,14 @@ const openDefectModal = (item) => {
 
 const openQcModal = (item) => {
     selectedQcItem.value = item;
+};
+
+const handleQcPass = ({ item, notes }) => {
+    updateStatus(item, 'READY_DELIVERY', notes);
+};
+
+const handleQcReject = ({ item, notes }) => {
+    updateStatus(item, 'WASHING', notes);
 };
 
 const getSlaBadgeClass = (slaStatus) => {
@@ -1071,120 +1080,16 @@ const stationDetails = computed(() => {
             </div>
         </div>
 
-        <!-- QC Inspection Modal with Guard -->
-        <div
-            v-if="selectedQcItem"
-            class="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4 backdrop-blur-xs"
-            @click.self="selectedQcItem = null"
-        >
-            <div class="w-full max-w-lg rounded-2xl bg-white p-6 shadow-xl">
-                <div class="flex items-center justify-between border-b pb-3">
-                    <div class="flex items-center gap-2 text-emerald-800">
-                        <ShieldCheck class="h-5 w-5 text-emerald-600" />
-                        <h3 class="text-base font-bold text-neutral-900">Lembar Verifikasi Quality Control (QC)</h3>
-                    </div>
-                    <button
-                        type="button"
-                        @click="selectedQcItem = null"
-                        class="text-neutral-400 hover:text-neutral-600"
-                    >
-                        <X class="h-5 w-5" />
-                    </button>
-                </div>
-
-                <div class="mt-4 space-y-4">
-                    <div class="flex items-center justify-between rounded-xl bg-neutral-50 p-3">
-                        <div>
-                            <span class="font-mono text-xs font-bold text-neutral-500">{{ selectedQcItem.item_tag_code }}</span>
-                            <h4 class="text-sm font-bold text-neutral-900">{{ selectedQcItem.shoe_brand_model }}</h4>
-                            <p class="text-xs text-neutral-500">{{ selectedQcItem.service?.service_name }}</p>
-                        </div>
-                        <span
-                            class="rounded-full px-2.5 py-1 text-xs font-bold"
-                            :class="selectedQcItem.qc?.qc_passed ? 'bg-emerald-100 text-emerald-800' : 'bg-amber-100 text-amber-800'"
-                        >
-                            {{ selectedQcItem.qc?.qc_passed ? 'Lolos QC' : 'Perlu Verifikasi' }}
-                        </span>
-                    </div>
-
-                    <!-- 6 QC Checklist Summary -->
-                    <div class="rounded-xl border border-neutral-200 p-4 space-y-2.5 text-xs text-neutral-700">
-                        <p class="font-bold text-neutral-900 mb-2">Checklist 6 Parameter Kelayakan Spatoe:</p>
-                        <div class="grid grid-cols-2 gap-2">
-                            <div class="flex items-center gap-2">
-                                <CheckCircle2 class="h-4 w-4 text-emerald-600" />
-                                <span>Upper Bersih Bebas Noda</span>
-                            </div>
-                            <div class="flex items-center gap-2">
-                                <CheckCircle2 class="h-4 w-4 text-emerald-600" />
-                                <span>Midsole Bersih Terawat</span>
-                            </div>
-                            <div class="flex items-center gap-2">
-                                <CheckCircle2 class="h-4 w-4 text-emerald-600" />
-                                <span>Outsole Disikat Rapi</span>
-                            </div>
-                            <div class="flex items-center gap-2">
-                                <CheckCircle2 class="h-4 w-4 text-emerald-600" />
-                                <span>Kering Sempurna 100%</span>
-                            </div>
-                            <div class="flex items-center gap-2">
-                                <CheckCircle2 class="h-4 w-4 text-emerald-600" />
-                                <span>Disemprot Parfum Sepatu</span>
-                            </div>
-                            <div class="flex items-center gap-2">
-                                <CheckCircle2 class="h-4 w-4 text-emerald-600" />
-                                <span>Ziplock & Silica Gel Terpasang</span>
-                            </div>
-                        </div>
-                    </div>
-                </div>
-
-                <!-- Action in QC Modal with Workstation Guard -->
-                <div class="mt-6 flex flex-col gap-2.5 sm:flex-row">
-                    <!-- Reject / Return to Wash -->
-                    <button
-                        type="button"
-                        @click="canOperateStation('QC_INSPECTION') && updateStatus(selectedQcItem, 'WASHING', 'QC Gagal: Sepatu dikembalikan ke tahap cuci ulang')"
-                        :disabled="updatingItemId === selectedQcItem.id || !canOperateStation('QC_INSPECTION')"
-                        :class="[
-                            'flex flex-1 items-center justify-center gap-1.5 rounded-xl border py-2.5 text-xs font-bold transition',
-                            !canOperateStation('QC_INSPECTION')
-                                ? 'border-neutral-300 bg-neutral-200 text-neutral-400 cursor-not-allowed opacity-60'
-                                : 'border-rose-300 bg-rose-50 text-rose-700 hover:bg-rose-100'
-                        ]"
-                    >
-                        <Lock v-if="!canOperateStation('QC_INSPECTION')" class="h-4 w-4" />
-                        <RotateCcw v-else class="h-4 w-4" />
-                        <span>{{ !canOperateStation('QC_INSPECTION') ? 'Hanya Petugas Pos Terkait' : 'Tolak & Cuci Ulang' }}</span>
-                    </button>
-
-                    <!-- Pass QC & Set Ready -->
-                    <button
-                        type="button"
-                        @click="canOperateStation('QC_INSPECTION') && updateStatus(selectedQcItem, 'READY_DELIVERY', 'QC Passed: Sepatu siap diantar/diambil')"
-                        :disabled="updatingItemId === selectedQcItem.id || !canOperateStation('QC_INSPECTION')"
-                        :class="[
-                            'flex flex-1 items-center justify-center gap-1.5 rounded-xl py-2.5 text-xs font-bold text-white transition',
-                            !canOperateStation('QC_INSPECTION')
-                                ? 'bg-neutral-300 text-neutral-500 cursor-not-allowed opacity-60'
-                                : 'bg-emerald-700 hover:bg-emerald-800'
-                        ]"
-                    >
-                        <Lock v-if="!canOperateStation('QC_INSPECTION')" class="h-4 w-4" />
-                        <Check v-else class="h-4 w-4" />
-                        <span>{{ !canOperateStation('QC_INSPECTION') ? 'Hanya Petugas Pos Terkait' : 'Lulus QC & Siap Antar' }}</span>
-                    </button>
-                </div>
-
-                <div
-                    v-if="!canOperateStation('QC_INSPECTION')"
-                    class="mt-2.5 text-center text-xs text-amber-700 bg-amber-50 p-2 rounded-xl border border-amber-200/60 flex items-center justify-center gap-1.5"
-                >
-                    <Lock class="w-3.5 h-3.5 text-amber-600 flex-shrink-0" />
-                    <span>Mode Pantau: Anda hanya dapat memverifikasi lembar QC jika bertugas di Pos QC atau sebagai Admin.</span>
-                </div>
-            </div>
-        </div>
+        <!-- Modal Lembar Verifikasi QC Interaktif -->
+        <QcModal
+            :is-open="Boolean(selectedQcItem)"
+            :item="selectedQcItem"
+            :can-operate="canOperateStation('QC_INSPECTION')"
+            :is-processing="updatingItemId === selectedQcItem?.id"
+            @close="selectedQcItem = null"
+            @pass="handleQcPass"
+            @reject="handleQcReject"
+        />
 
         <!-- Modal Cetak Thermal & Label Tag Rak -->
         <ThermalPrintModal

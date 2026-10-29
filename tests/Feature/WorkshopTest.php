@@ -356,6 +356,87 @@ class WorkshopTest extends TestCase
         $this->assertEquals('CHECKED_IN', $item->status);
     }
 
+    public function test_update_status_qc_passed_creates_or_updates_qc_record(): void
+    {
+        $technician = User::factory()->create(['role' => 'technician']);
+
+        $item = OrderItem::create([
+            'order_id' => $this->order->id,
+            'service_id' => $this->service->id,
+            'technician_id' => $technician->id,
+            'item_tag_code' => 'TAG-QC-01',
+            'shoe_brand_model' => 'Adidas Samba',
+            'shoe_material' => 'Leather',
+            'status' => 'QC_INSPECTION',
+        ]);
+
+        $response = $this->actingAs($technician)->patch(
+            route('workshop.items.update-status', $item),
+            [
+                'status' => 'READY_DELIVERY',
+                'notes' => 'QC Lulus: 6/6 Parameter Kelayakan Mutu Terpenuhi',
+            ]
+        );
+
+        $response->assertSessionHasNoErrors();
+        $response->assertRedirect();
+
+        $item->refresh();
+        $this->assertEquals('READY_DELIVERY', $item->status);
+        $this->assertDatabaseHas('order_item_qc', [
+            'order_item_id' => $item->id,
+            'inspected_by' => $technician->id,
+            'qc_passed' => true,
+            'is_upper_clean' => true,
+            'is_midsole_clean' => true,
+            'is_outsole_clean' => true,
+            'is_completely_dry' => true,
+            'is_perfumed' => true,
+            'is_silica_packed' => true,
+        ]);
+    }
+
+    public function test_update_status_qc_rejected_returns_to_washing_with_notes(): void
+    {
+        $technician = User::factory()->create(['role' => 'technician']);
+
+        $item = OrderItem::create([
+            'order_id' => $this->order->id,
+            'service_id' => $this->service->id,
+            'technician_id' => $technician->id,
+            'item_tag_code' => 'TAG-QC-REJECT-01',
+            'shoe_brand_model' => 'New Balance 550',
+            'shoe_material' => 'Leather',
+            'status' => 'QC_INSPECTION',
+        ]);
+
+        $response = $this->actingAs($technician)->patch(
+            route('workshop.items.update-status', $item),
+            [
+                'status' => 'WASHING',
+                'notes' => 'QC Gagal: Midsole tumit masih ada sisa lumpur cokelat',
+            ]
+        );
+
+        $response->assertSessionHasNoErrors();
+        $response->assertRedirect();
+
+        $item->refresh();
+        $this->assertEquals('WASHING', $item->status);
+        $this->assertDatabaseHas('order_item_status_logs', [
+            'order_item_id' => $item->id,
+            'previous_status' => 'QC_INSPECTION',
+            'new_status' => 'WASHING',
+            'notes' => 'QC Gagal: Midsole tumit masih ada sisa lumpur cokelat',
+            'changed_by' => $technician->id,
+        ]);
+        $this->assertDatabaseHas('order_item_qc', [
+            'order_item_id' => $item->id,
+            'inspected_by' => $technician->id,
+            'qc_passed' => false,
+        ]);
+    }
+
     public function test_admin_receives_staff_list_in_workshop_index(): void
     {
         $admin = User::factory()->create(['role' => 'admin']);
