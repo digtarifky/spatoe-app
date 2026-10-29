@@ -104,7 +104,7 @@ const WORKSTATION_TABS = [
                     class="inline-flex items-center gap-1.5 rounded-xl bg-[#6B0B23] px-3.5 py-2 text-xs font-bold text-white shadow-xs transition hover:bg-[#54081B] whitespace-nowrap"
                 >
                     <Plus class="h-3.5 w-3.5" />
-                    <span>+ Terima Sepatu Baru</span>
+                    <span>Terima Sepatu Baru</span>
                 </Link>
             </slot>
         </div>

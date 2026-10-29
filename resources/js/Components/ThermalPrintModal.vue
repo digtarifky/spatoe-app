@@ -1,5 +1,6 @@
 <script setup>
-import { ref, computed, watch, nextTick } from 'vue';
+import { ref, computed, watch, nextTick, onUnmounted } from 'vue';
+import { usePage } from '@inertiajs/vue3';
 import JsBarcode from 'jsbarcode';
 import {
     Printer,
@@ -7,10 +8,8 @@ import {
     Receipt,
     Tag,
     Sliders,
-    CheckCircle2,
-    AlertCircle,
     Copy,
-    Check
+    Check,
 } from 'lucide-vue-next';
 
 const props = defineProps({
@@ -26,8 +25,13 @@ const props = defineProps({
 
 const emit = defineEmits(['close']);
 
+const page = usePage();
+const currentUser = computed(() => page.props.auth?.user || {});
+// Hanya admin dan supervisor yang diizinkan mencetak struk nota keuangan kasir
+const canPrintReceipt = computed(() => ['admin', 'supervisor'].includes(currentUser.value?.role));
+
 // Print Configuration State
-const printMode = ref('receipt'); // 'receipt' | 'shelf_tag'
+const printMode = ref(canPrintReceipt.value ? 'receipt' : 'shelf_tag'); // 'receipt' | 'shelf_tag'
 const paperWidth = ref('58mm'); // '58mm' | '80mm'
 const isCopied = ref(false);
 
@@ -60,8 +64,8 @@ const renderBarcodes = async () => {
     if (!props.isOpen || !props.order) return;
     await nextTick();
 
-    // Mode 1: Barcode Struk Nota (CODE128 dari order_code)
-    if (printMode.value === 'receipt') {
+    // Mode 1: Barcode Struk Nota (CODE128 dari order_code) - Hanya jika berhak
+    if (printMode.value === 'receipt' && canPrintReceipt.value) {
         const receiptBarcodeEl = document.querySelector('.receipt-barcode-svg');
         if (receiptBarcodeEl && props.order.order_code) {
             try {
@@ -82,7 +86,7 @@ const renderBarcodes = async () => {
     }
 
     // Mode 2: Barcode Tag Rak Fisik (CODE128 dari item_tag_code per pasang sepatu)
-    if (printMode.value === 'shelf_tag') {
+    if (printMode.value === 'shelf_tag' || !canPrintReceipt.value) {
         const tagBarcodeEls = document.querySelectorAll('.tag-barcode-svg');
         tagBarcodeEls.forEach((el) => {
             const code = el.getAttribute('data-barcode');
@@ -106,9 +110,191 @@ const renderBarcodes = async () => {
     }
 };
 
+// Injeksi dynamic print stylesheet ke dokumen utama untuk presisi @page thermal printer
+const injectDynamicPrintStyles = (width) => {
+    let styleEl = document.getElementById('spatoe-thermal-dynamic-print-style');
+    if (!styleEl) {
+        styleEl = document.createElement('style');
+        styleEl.id = 'spatoe-thermal-dynamic-print-style';
+        document.head.appendChild(styleEl);
+    }
+
+    styleEl.innerHTML = `
+        @media print {
+            @page {
+                size: ${width} auto !important;
+                margin: 0 !important;
+            }
+            html, body {
+                width: ${width} !important;
+                min-width: ${width} !important;
+                max-width: ${width} !important;
+                margin: 0 !important;
+                padding: 0 !important;
+                background: #ffffff !important;
+                overflow: visible !important;
+            }
+            body * {
+                visibility: hidden !important;
+            }
+            .no-print,
+            .no-print * {
+                display: none !important;
+            }
+            #thermal-print-area,
+            #thermal-print-area * {
+                visibility: visible !important;
+            }
+            #thermal-print-area {
+                position: absolute !important;
+                left: 0 !important;
+                top: 0 !important;
+                width: ${width} !important;
+                min-width: ${width} !important;
+                max-width: ${width} !important;
+                margin: 0 !important;
+                padding: 2mm 3mm !important;
+                box-shadow: none !important;
+                background: #ffffff !important;
+                color: #000000 !important;
+                page-break-inside: avoid !important;
+                break-inside: avoid !important;
+                overflow: visible !important;
+            }
+            .break-after-page {
+                page-break-after: always !important;
+                break-after: page !important;
+            }
+            .break-inside-avoid {
+                page-break-inside: avoid !important;
+                break-inside: avoid !important;
+            }
+        }
+    `;
+};
+
+// Metode cetak terisolasi via Hidden Iframe untuk menghindari pemotongan bawah dan interferensi layout window
+const printViaIsolatedIframe = (targetEl, width) => {
+    let iframe = document.getElementById('thermal-print-iframe');
+    if (iframe) {
+        iframe.remove();
+    }
+
+    iframe = document.createElement('iframe');
+    iframe.id = 'thermal-print-iframe';
+    iframe.name = 'thermal-print-iframe';
+    iframe.style.position = 'fixed';
+    iframe.style.right = '0';
+    iframe.style.bottom = '0';
+    iframe.style.width = '0';
+    iframe.style.height = '0';
+    iframe.style.border = '0';
+    iframe.style.visibility = 'hidden';
+    document.body.appendChild(iframe);
+
+    // Salin stylesheet aplikasi agar class Tailwind tetap berfungsi di dalam iframe
+    const styleLinks = Array.from(document.querySelectorAll('link[rel="stylesheet"], style'))
+        .filter((node) => node.id !== 'spatoe-thermal-dynamic-print-style')
+        .map((node) => node.outerHTML)
+        .join('\n');
+
+    const iframeDoc = iframe.contentWindow.document;
+    iframeDoc.open();
+    iframeDoc.write(`
+        <!DOCTYPE html>
+        <html lang="id">
+        <head>
+            <meta charset="utf-8">
+            <title>Cetak Thermal Spatoe - ${props.order?.order_code || ''}</title>
+            ${styleLinks}
+            <style>
+                @page {
+                    size: ${width} auto;
+                    margin: 0;
+                }
+                @media print {
+                    @page {
+                        size: ${width} auto;
+                        margin: 0;
+                    }
+                }
+                html, body {
+                    margin: 0 !important;
+                    padding: 0 !important;
+                    background: #ffffff !important;
+                    color: #000000 !important;
+                    width: ${width} !important;
+                    min-width: ${width} !important;
+                    max-width: ${width} !important;
+                    font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace !important;
+                    -webkit-print-color-adjust: exact !important;
+                    print-color-adjust: exact !important;
+                    overflow: visible !important;
+                }
+                * {
+                    box-sizing: border-box !important;
+                }
+                .thermal-print-wrapper {
+                    width: ${width} !important;
+                    max-width: ${width} !important;
+                    margin: 0 auto !important;
+                    padding: 2mm 3mm !important;
+                    background: #ffffff !important;
+                    color: #000000 !important;
+                    page-break-inside: avoid !important;
+                    break-inside: avoid !important;
+                    overflow: visible !important;
+                }
+                .break-after-page {
+                    page-break-after: always !important;
+                    break-after: page !important;
+                }
+                .break-inside-avoid {
+                    page-break-inside: avoid !important;
+                    break-inside: avoid !important;
+                }
+                svg {
+                    display: block;
+                    margin-left: auto;
+                    margin-right: auto;
+                }
+            </style>
+        </head>
+        <body>
+            <div class="thermal-print-wrapper">
+                ${targetEl.innerHTML}
+            </div>
+        </body>
+        </html>
+    `);
+    iframeDoc.close();
+
+    // Beri jeda kecil agar rendering barcode SVG dan style dalam iframe tuntas
+    setTimeout(() => {
+        try {
+            iframe.contentWindow.focus();
+            iframe.contentWindow.print();
+        } catch (err) {
+            console.warn('Iframe print tidak didukung atau terblokir, fallback ke window.print:', err);
+            window.print();
+        }
+    }, 250);
+};
+
 const handlePrint = async () => {
     await renderBarcodes();
-    window.print();
+    await nextTick();
+
+    const targetEl = document.getElementById('thermal-print-area');
+    const currentWidth = paperWidth.value;
+
+    injectDynamicPrintStyles(currentWidth);
+
+    if (targetEl) {
+        printViaIsolatedIframe(targetEl, currentWidth);
+    } else {
+        window.print();
+    }
 };
 
 const copyOrderCode = async () => {
@@ -124,15 +310,27 @@ const copyOrderCode = async () => {
     }
 };
 
+// Pastikan guard role dan sinkronisasi barcode saat modal dibuka
 watch(
-    () => [props.isOpen, props.order, printMode.value, paperWidth.value],
+    () => [props.isOpen, props.order, printMode.value, paperWidth.value, canPrintReceipt.value],
     () => {
         if (props.isOpen) {
+            if (!canPrintReceipt.value) {
+                printMode.value = 'shelf_tag';
+            }
             renderBarcodes();
+            injectDynamicPrintStyles(paperWidth.value);
         }
     },
     { immediate: true }
 );
+
+onUnmounted(() => {
+    const dynamicStyle = document.getElementById('spatoe-thermal-dynamic-print-style');
+    if (dynamicStyle) dynamicStyle.remove();
+    const iframe = document.getElementById('thermal-print-iframe');
+    if (iframe) iframe.remove();
+});
 </script>
 
 <template>
@@ -161,7 +359,7 @@ watch(
                         </div>
                         <div>
                             <h3 class="text-sm sm:text-base font-bold text-white leading-tight">
-                                Cetak Thermal Kasir & Label Tag
+                                {{ canPrintReceipt ? 'Cetak Thermal Kasir & Label Tag' : 'Cetak Label Tag Rak Fisik' }}
                             </h3>
                             <p class="text-[11px] text-neutral-400 font-mono">
                                 Nota: {{ order.order_code }}
@@ -182,7 +380,8 @@ watch(
                 <!-- Control Bar: Mode Toggle & Paper Width (no-print) -->
                 <div class="px-5 py-3 border-b border-neutral-800 bg-neutral-950/70 flex flex-wrap items-center justify-between gap-3 no-print text-xs">
                     <!-- Tab Mode: Struk Kasir vs Label Tag Rak -->
-                    <div class="inline-flex bg-neutral-900 p-1 rounded-xl border border-neutral-800">
+                    <!-- Sembunyikan tab Struk Nota Kasir jika role adalah technician -->
+                    <div v-if="canPrintReceipt" class="inline-flex bg-neutral-900 p-1 rounded-xl border border-neutral-800">
                         <button
                             type="button"
                             @click="printMode = 'receipt'"
@@ -209,6 +408,12 @@ watch(
                             <Tag class="w-3.5 h-3.5" />
                             <span>Label Tag Rak Fisik</span>
                         </button>
+                    </div>
+
+                    <!-- Badge Khusus Teknisi (Hanya Label Tag Rak) -->
+                    <div v-else class="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-neutral-900 border border-neutral-800 text-neutral-300 font-bold text-xs">
+                        <Tag class="w-3.5 h-3.5 text-[#6B0B23]" />
+                        <span>Label Tag Rak Fisik (Workshop)</span>
                     </div>
 
                     <!-- Pilihan Lebar Kertas: 58mm vs 80mm -->
@@ -252,12 +457,12 @@ watch(
                     <div
                         id="thermal-print-area"
                         :class="[
-                            'bg-white text-black p-4 sm:p-5 shadow-2xl font-mono text-xs leading-tight transition-all duration-300 select-none print:shadow-none',
+                            'bg-white text-black p-4 sm:p-5 shadow-2xl font-mono text-xs leading-tight transition-all duration-300 select-none print:shadow-none break-inside-avoid',
                             paperWidth === '58mm' ? 'w-[58mm] max-w-[270px]' : 'w-[80mm] max-w-[360px]'
                         ]"
                     >
-                        <!-- ================= MODE 1: STRUK NOTA KASIR ================= -->
-                        <div v-if="printMode === 'receipt'" class="space-y-2">
+                        <!-- ================= MODE 1: STRUK NOTA KASIR (Admin & Supervisor Only) ================= -->
+                        <div v-if="printMode === 'receipt' && canPrintReceipt" class="space-y-2 break-inside-avoid">
                             <!-- Header Mini Brand -->
                             <div class="text-center space-y-0.5 mb-2">
                                 <h2 class="text-xl font-black italic tracking-wider">spatoe</h2>
@@ -469,10 +674,10 @@ watch(
                         <button
                             type="button"
                             @click="handlePrint"
-                            class="inline-flex items-center gap-2 bg-[#6B0B23] hover:bg-[#54081B] text-white px-5 py-2.5 rounded-xl text-xs sm:text-sm font-bold shadow-md transition-all"
+                            class="inline-flex items-center gap-2 bg-[#6B0B23] hover:bg-[#54081B] text-white px-5 py-2.5 rounded-xl text-xs sm:text-sm font-bold shadow-md transition-all cursor-pointer"
                         >
                             <Printer class="w-4 h-4" />
-                            <span>Cetak {{ printMode === 'receipt' ? 'Struk Kasir' : 'Label Tag' }}</span>
+                            <span>Cetak {{ printMode === 'receipt' && canPrintReceipt ? 'Struk Kasir' : 'Label Tag' }}</span>
                         </button>
                     </div>
                 </div>
@@ -482,20 +687,14 @@ watch(
 </template>
 
 <style>
-/* CSS Print Optimization untuk Printer Termal USB / Bluetooth (POS 58mm & 80mm) */
+/* Fallback CSS Print Optimization untuk Printer Termal USB / Bluetooth (POS 58mm & 80mm) */
 @media print {
-    @page {
-        margin: 0;
-        size: auto;
-    }
-
     body {
         margin: 0 !important;
         padding: 0 !important;
         background: #ffffff !important;
     }
 
-    /* Sembunyikan seluruh UI latar belakang aplikasi */
     body * {
         visibility: hidden !important;
     }
@@ -505,7 +704,6 @@ watch(
         display: none !important;
     }
 
-    /* Isolasi #thermal-print-area ke titik nol halaman cetak */
     #thermal-print-area,
     #thermal-print-area * {
         visibility: visible !important;
@@ -515,16 +713,15 @@ watch(
         position: absolute !important;
         left: 0 !important;
         top: 0 !important;
-        width: 100% !important;
-        max-width: 100% !important;
         margin: 0 !important;
         padding: 2mm 3mm !important;
         box-shadow: none !important;
         background: #ffffff !important;
         color: #000000 !important;
+        page-break-inside: avoid !important;
+        break-inside: avoid !important;
     }
 
-    /* Pembatas halaman cetak untuk multi-item tag fisik */
     .break-after-page {
         page-break-after: always !important;
         break-after: page !important;
@@ -536,4 +733,3 @@ watch(
     }
 }
 </style>
-

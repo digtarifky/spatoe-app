@@ -112,6 +112,8 @@ const handleSearch = () => {
 };
 
 const openPrintModal = (item) => {
+    if (!isAdmin.value) return;
+
     printOrder.value = {
         order_code: item.order_code,
         created_at: item.order?.created_at || 'Hari ini',

@@ -1,5 +1,6 @@
 <script setup>
 import { computed } from 'vue';
+import { usePage } from '@inertiajs/vue3';
 import {
     Printer,
     AlertTriangle,
@@ -47,6 +48,11 @@ const props = defineProps({
 
 defineEmits(['action', 'open-qc', 'open-print', 'view-defect']);
 
+const page = usePage();
+const currentUser = computed(() => page.props.auth?.user || {});
+// Teknisi bengkel tidak memiliki fitur cetak tag/struk; hanya admin & supervisor yang dapat mencetak
+const canPrint = computed(() => ['admin', 'supervisor'].includes(currentUser.value?.role));
+
 const getSlaBadgeClass = (slaStatus) => {
     switch (slaStatus) {
         case 'overdue':
@@ -82,8 +88,9 @@ const hasQcRejection = computed(() => {
             </div>
 
             <div class="flex items-center gap-1">
-                <!-- Thermal Print Button -->
+                <!-- Thermal Print Button (Hanya untuk Admin / Supervisor; Teknisi tidak memiliki tombol cetak) -->
                 <button
+                    v-if="canPrint"
                     type="button"
                     @click="$emit('open-print', item)"
                     class="flex items-center gap-1 rounded bg-neutral-100 border border-neutral-200 px-1.5 py-0.5 text-[10px] font-semibold text-neutral-600 hover:text-neutral-900 hover:bg-neutral-200 transition-colors"
