@@ -2,6 +2,7 @@
 
 use App\Http\Controllers\ProfileController;
 use App\Http\Controllers\TrackingController;
+use App\Http\Controllers\WorkshopCheckInController;
 use App\Http\Controllers\WorkshopController;
 use Illuminate\Support\Facades\Route;
 use Inertia\Inertia;
@@ -26,6 +27,11 @@ Route::middleware(['auth', 'verified'])->group(function () {
     // Workshop Floor (Kanban Board)
     Route::get('/workshop', [WorkshopController::class, 'index'])->name('workshop.index');
     Route::patch('/workshop/items/{item}/status', [WorkshopController::class, 'updateStatus'])->name('workshop.items.update-status');
+
+    // Workshop Check-In & Intake Kasir
+    Route::get('/workshop/checkin', [WorkshopCheckInController::class, 'create'])->name('workshop.checkin');
+    Route::post('/workshop/checkin', [WorkshopCheckInController::class, 'store'])->name('workshop.checkin.store');
+    Route::get('/workshop/checkin/find-customer', [WorkshopCheckInController::class, 'findCustomer'])->name('workshop.checkin.find-customer');
 });
 
 require __DIR__.'/auth.php';

@@ -1,8 +1,9 @@
 <script setup>
 import { ref, computed } from 'vue';
-import { Head, router } from '@inertiajs/vue3';
+import { Head, router, Link } from '@inertiajs/vue3';
 import AuthenticatedLayout from '@/Layouts/AuthenticatedLayout.vue';
 import {
+    Plus,
     Sparkles,
     Wind,
     ShieldCheck,
@@ -253,8 +254,18 @@ const getSlaBadgeClass = (slaStatus) => {
                             </button>
                         </form>
 
-                        <div class="text-xs text-neutral-500">
-                            Menampilkan <span class="font-bold text-neutral-800">{{ items.length }}</span> pasang sepatu aktif
+                        <div class="flex items-center gap-3">
+                            <Link
+                                :href="route('workshop.checkin')"
+                                class="inline-flex items-center gap-1.5 rounded-xl bg-[#6B0B23] px-3.5 py-2 text-xs font-bold text-white shadow-xs transition hover:bg-[#54081B]"
+                            >
+                                <Plus class="h-4 w-4" />
+                                <span>Intake Kasir Baru</span>
+                            </Link>
+
+                            <div class="hidden text-xs text-neutral-500 sm:block">
+                                <span class="font-bold text-neutral-800">{{ items.length }}</span> aktif
+                            </div>
                         </div>
                     </div>
                 </div>
