@@ -344,122 +344,91 @@ const stationDetails = computed(() => {
 </script>
 
 <template>
-    <AuthenticatedLayout>
+    <AuthenticatedLayout
+        :search="searchQuery"
+        @update:search="searchQuery = $event"
+        @search="handleSearch"
+    >
         <Head title="Workshop Floor - Antrean Cuci" />
 
         <div class="min-h-screen bg-neutral-100/70 pb-16">
-            <!-- Header Workshop & Mini Metrics -->
+            <!-- Header Workshop & Mini Metrics (Satu Baris Terpadu) -->
             <div class="border-b border-neutral-200 bg-white shadow-xs">
-                <div class="mx-auto max-w-7xl px-4 py-6 sm:px-6 lg:px-8">
-                    <div class="flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
+                <div class="mx-auto max-w-7xl px-4 py-5 sm:px-6 lg:px-8">
+                    <!-- Baris Terpadu: Judul di Kiri, Metrik & Tombol Aksi di Kanan -->
+                    <div class="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
                         <div>
                             <div class="flex items-center gap-2.5">
                                 <span class="h-3 w-3 rounded-full bg-[#6B0B23]" />
-                                <h1 class="text-2xl font-black tracking-tight text-neutral-900">
-                                    Workshop Floor / Antrean Cuci
+                                <h1 class="text-xl sm:text-2xl font-black tracking-tight text-neutral-900">
+                                    Workshop Floor
                                 </h1>
+                                <span class="text-xs font-semibold text-neutral-400 hidden sm:inline">/ Antrean Cuci</span>
                             </div>
-                            <p class="mt-1 text-xs text-neutral-500">
+                            <p class="mt-0.5 text-xs text-neutral-500">
                                 Pantau SLA pengerjaan, manajemen stasiun spesialisasi teknisi, dan perbarui tahapan 1-klik.
                             </p>
                         </div>
 
-                        <!-- Mini Metrics Banner & Workstation Duty Indicator -->
-                        <div class="flex flex-wrap items-center gap-3">
-                            <!-- Workstation Duty Indicator -->
-                            <div class="flex items-center gap-2 rounded-xl border border-neutral-200 bg-neutral-50 px-3 py-2 text-xs shadow-2xs">
-                                <span class="text-[11px] font-bold text-neutral-500">Tugas Anda:</span>
-                                <span class="font-extrabold text-neutral-800">
-                                    {{ getStationBadgeLabel(currentUser?.assigned_station) }}
-                                </span>
-                                <span
-                                    v-if="isAdmin"
-                                    class="rounded bg-[#6B0B23]/10 px-2 py-0.5 text-[10px] font-extrabold uppercase tracking-wider text-[#6B0B23]"
-                                >
-                                    {{ currentUser?.role === 'supervisor' ? 'Supervisor' : 'Admin' }}
-                                </span>
-                            </div>
-
-                            <div class="flex items-center gap-3 rounded-xl border border-neutral-200 bg-neutral-50 px-3.5 py-2">
-                                <div class="rounded-lg bg-neutral-200 p-2 text-neutral-700">
+                        <!-- Metrik Antrean & Tombol Aksi (Di Sebelah Kanan) -->
+                        <div class="flex flex-wrap items-center gap-2 sm:gap-3">
+                            <!-- Metrik: Total Workshop -->
+                            <div class="flex items-center gap-2.5 rounded-xl border border-neutral-200 bg-neutral-50 px-3 py-1.5 shadow-2xs">
+                                <div class="rounded-lg bg-neutral-200/80 p-1.5 text-neutral-700">
                                     <Package class="h-4 w-4" />
                                 </div>
-                                <div>
-                                    <p class="text-[10px] font-bold uppercase tracking-wider text-neutral-400">Total Workshop</p>
-                                    <p class="text-base font-extrabold text-neutral-900">{{ metrics.total_active }} <span class="text-xs font-normal text-neutral-500">pasang</span></p>
+                                <div class="leading-tight">
+                                    <p class="text-[9px] font-bold uppercase tracking-wider text-neutral-400">Total Workshop</p>
+                                    <p class="text-xs font-extrabold text-neutral-900">{{ metrics.total_active }} <span class="text-[10px] font-normal text-neutral-500">pasang</span></p>
                                 </div>
                             </div>
 
-                            <div class="flex items-center gap-3 rounded-xl border border-amber-200 bg-amber-50/50 px-3.5 py-2">
-                                <div class="rounded-lg bg-amber-100 p-2 text-amber-700">
+                            <!-- Metrik: Antrean Cuci -->
+                            <div class="flex items-center gap-2.5 rounded-xl border border-amber-200 bg-amber-50/50 px-3 py-1.5 shadow-2xs">
+                                <div class="rounded-lg bg-amber-100 p-1.5 text-amber-700">
                                     <Sparkles class="h-4 w-4" />
                                 </div>
-                                <div>
-                                    <p class="text-[10px] font-bold uppercase tracking-wider text-amber-600">Antrean Cuci</p>
-                                    <p class="text-base font-extrabold text-amber-900">{{ metrics.needs_washing }} <span class="text-xs font-normal text-amber-700">pasang</span></p>
+                                <div class="leading-tight">
+                                    <p class="text-[9px] font-bold uppercase tracking-wider text-amber-600">Antrean Cuci</p>
+                                    <p class="text-xs font-extrabold text-amber-900">{{ metrics.needs_washing }} <span class="text-[10px] font-normal text-amber-700">pasang</span></p>
                                 </div>
                             </div>
 
-                            <div class="flex items-center gap-3 rounded-xl border border-rose-200 bg-rose-50/50 px-3.5 py-2">
-                                <div class="rounded-lg bg-rose-100 p-2 text-rose-700">
+                            <!-- Metrik: Mendesak -->
+                            <div class="flex items-center gap-2.5 rounded-xl border border-rose-200 bg-rose-50/50 px-3 py-1.5 shadow-2xs">
+                                <div class="rounded-lg bg-rose-100 p-1.5 text-rose-700">
                                     <Clock class="h-4 w-4" />
                                 </div>
-                                <div>
-                                    <p class="text-[10px] font-bold uppercase tracking-wider text-rose-600">Mendesak</p>
-                                    <p class="text-base font-extrabold text-rose-900">{{ metrics.urgent_count }} <span class="text-xs font-normal text-rose-700">pasang</span></p>
+                                <div class="leading-tight">
+                                    <p class="text-[9px] font-bold uppercase tracking-wider text-rose-600">Mendesak</p>
+                                    <p class="text-xs font-extrabold text-rose-900">{{ metrics.urgent_count }} <span class="text-[10px] font-normal text-rose-700">pasang</span></p>
                                 </div>
                             </div>
-                        </div>
-                    </div>
 
-                    <!-- Search Bar & Intake Kasir -->
-                    <div class="mt-5 flex items-center justify-between gap-3">
-                        <form @submit.prevent="handleSearch" class="relative max-w-md flex-1">
-                            <Search class="absolute left-3.5 top-1/2 h-4 w-4 -translate-y-1/2 text-neutral-400" />
-                            <input
-                                v-model="searchQuery"
-                                type="text"
-                                placeholder="Cari tag fisik (e.g. TAG-001) atau model sepatu..."
-                                class="w-full rounded-xl border border-neutral-300 bg-neutral-50 py-2 pl-10 pr-9 text-xs text-neutral-800 placeholder-neutral-400 focus:border-[#6B0B23] focus:bg-white focus:outline-none focus:ring-2 focus:ring-[#6B0B23]/20"
-                            />
-                            <button
-                                v-if="searchQuery"
-                                type="button"
-                                @click="clearSearch"
-                                class="absolute right-2.5 top-1/2 -translate-y-1/2 text-neutral-400 hover:text-neutral-600"
-                            >
-                                <X class="h-4 w-4" />
-                            </button>
-                        </form>
-
-                        <div class="flex items-center gap-2.5">
-                            <!-- Tombol Atur Shift Staf (Admin & Supervisor Only) -->
+                            <!-- Tombol Atur Shift Teknisi (Admin & Supervisor Only) -->
                             <button
                                 v-if="isAdmin"
                                 type="button"
                                 @click="stationModalOpen = true"
-                                class="inline-flex items-center gap-1.5 rounded-xl border border-neutral-300 bg-white px-3.5 py-2 text-xs font-bold text-neutral-700 shadow-xs transition hover:bg-neutral-50 hover:text-neutral-900"
+                                class="inline-flex items-center gap-1.5 rounded-xl border border-neutral-300 bg-white px-3 py-2 text-xs font-bold text-neutral-700 shadow-2xs transition hover:bg-neutral-50 hover:text-neutral-900"
                             >
-                                <Users class="h-4 w-4 text-[#6B0B23]" />
-                                <span>Atur Shift Staf</span>
+                                <Users class="h-3.5 w-3.5 text-[#6B0B23]" />
+                                <span>Atur Shift Teknisi</span>
                             </button>
 
+                            <!-- Tombol Intake Kasir Baru -->
                             <Link
                                 :href="route('workshop.checkin')"
                                 class="inline-flex items-center gap-1.5 rounded-xl bg-[#6B0B23] px-3.5 py-2 text-xs font-bold text-white shadow-xs transition hover:bg-[#54081B]"
                             >
-                                <Plus class="h-4 w-4" />
-                                <span>Intake Kasir Baru</span>
+                                <Plus class="h-3.5 w-3.5" />
+                                <span>+ Intake Kasir Baru</span>
                             </Link>
-
-                            <div class="hidden text-xs text-neutral-500 sm:block">
-                                <span class="font-bold text-neutral-800">{{ items.length }}</span> aktif
-                            </div>
                         </div>
                     </div>
 
-                    <!-- Filter Pos Kerja di Atas (Assembly Line Tabs) -->
-                    <div class="mt-5 border-t border-neutral-100 pt-3">
+                    <!-- Filter Pos Kerja di Atas (Assembly Line Tabs) Tepat di Bawah Kartu Ringkasan -->
+                    <div class="mt-4 border-t border-neutral-100 pt-3">
                         <div class="flex items-center gap-2 overflow-x-auto pb-1 scrollbar-none">
                             <button
                                 v-for="tab in WORKSTATION_TABS"

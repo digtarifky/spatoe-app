@@ -125,14 +125,15 @@ class WorkshopController extends Controller
         $staffList = [];
         if ($isAdminOrSupervisor) {
             $staffList = User::query()
-                ->whereIn('role', ['admin', 'technician'])
+                ->where('role', 'technician')
                 ->where('is_active', true)
-                ->select(['id', 'name', 'role', 'assigned_station'])
+                ->select(['id', 'name', 'email', 'role', 'assigned_station'])
                 ->orderBy('name')
                 ->get()
                 ->map(fn (User $staff) => [
                     'id' => $staff->id,
                     'name' => $staff->name,
+                    'email' => $staff->email,
                     'role' => $staff->role,
                     'assigned_station' => $staff->assigned_station ?? 'ALL',
                 ])

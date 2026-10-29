@@ -371,7 +371,11 @@ class WorkshopTest extends TestCase
         $response->assertInertia(fn (Assert $page) => $page
             ->component('Workshop/Index')
             ->has('staffList')
-            ->where('staffList', fn ($list) => collect($list)->pluck('id')->contains($tech->id))
+            ->where('staffList', function ($list) use ($tech, $admin) {
+                $ids = collect($list)->pluck('id');
+
+                return $ids->contains($tech->id) && ! $ids->contains($admin->id);
+            })
         );
     }
 

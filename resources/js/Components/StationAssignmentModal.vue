@@ -104,10 +104,10 @@ const handleSave = () => {
                     </div>
                     <div>
                         <h3 class="text-base font-bold text-neutral-900">
-                            Penugasan Stasiun Staf Mingguan
+                            Penugasan Stasiun Teknisi Mingguan
                         </h3>
                         <p class="text-xs text-neutral-500">
-                            Atur pos tugas spesialisasi teknisi & admin untuk rotasi mingguan workshop Spatoe.
+                            Atur pos tugas spesialisasi teknisi untuk rotasi mingguan workshop Spatoe.
                         </p>
                     </div>
                 </div>
@@ -181,7 +181,7 @@ const handleSave = () => {
             <!-- Modal Footer -->
             <div class="flex items-center justify-between border-t border-neutral-100 px-6 py-4 bg-neutral-50/70">
                 <span class="text-xs text-neutral-500">
-                    <span class="font-bold text-neutral-800">{{ formAssignments.length }}</span> staf siap ditugaskan
+                    <span class="font-bold text-neutral-800">{{ formAssignments.length }}</span> teknisi siap ditugaskan
                 </span>
 
                 <div class="flex items-center gap-2">
