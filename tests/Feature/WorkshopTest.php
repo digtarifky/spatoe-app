@@ -255,4 +255,104 @@ class WorkshopTest extends TestCase
 
         $response->assertSessionHasErrors(['new_status']);
     }
+
+    public function test_update_status_accepts_status_field_and_assigns_technician_id(): void
+    {
+        $technician = User::factory()->create(['role' => 'technician', 'name' => 'Teknisi Budi']);
+
+        $item = OrderItem::create([
+            'order_id' => $this->order->id,
+            'service_id' => $this->service->id,
+            'technician_id' => null,
+            'item_tag_code' => 'TAG-STATION-01',
+            'shoe_brand_model' => 'Nike Dunk Low',
+            'shoe_material' => 'Leather',
+            'status' => 'WASHING',
+        ]);
+
+        $response = $this->actingAs($technician)->patch(
+            route('workshop.items.update-status', $item),
+            [
+                'status' => 'DRYING',
+                'notes' => 'Pindah ke Pos Dryer',
+            ]
+        );
+
+        $response->assertSessionHasNoErrors();
+        $response->assertRedirect();
+
+        $item->refresh();
+        $this->assertEquals('DRYING', $item->status);
+        $this->assertEquals($technician->id, $item->technician_id);
+
+        $this->assertDatabaseHas('order_item_status_logs', [
+            'order_item_id' => $item->id,
+            'previous_status' => 'WASHING',
+            'new_status' => 'DRYING',
+            'notes' => 'Pindah ke Pos Dryer',
+            'changed_by' => $technician->id,
+        ]);
+    }
+
+    public function test_update_status_completes_order_item_to_delivered(): void
+    {
+        $technician = User::factory()->create(['role' => 'technician']);
+
+        $item = OrderItem::create([
+            'order_id' => $this->order->id,
+            'service_id' => $this->service->id,
+            'technician_id' => $technician->id,
+            'item_tag_code' => 'TAG-DELIVER-01',
+            'shoe_brand_model' => 'Asics Gel Kayano',
+            'shoe_material' => 'Mesh',
+            'status' => 'READY_DELIVERY',
+        ]);
+
+        $response = $this->actingAs($technician)->patch(
+            route('workshop.items.update-status', $item),
+            [
+                'status' => 'DELIVERED',
+            ]
+        );
+
+        $response->assertSessionHasNoErrors();
+        $item->refresh();
+
+        $this->assertEquals('DELIVERED', $item->status);
+        $this->assertNotNull($item->completed_at);
+        $this->assertDatabaseHas('order_item_status_logs', [
+            'order_item_id' => $item->id,
+            'previous_status' => 'READY_DELIVERY',
+            'new_status' => 'DELIVERED',
+            'changed_by' => $technician->id,
+        ]);
+    }
+
+    public function test_update_status_blocks_illegal_status_jump(): void
+    {
+        $technician = User::factory()->create(['role' => 'technician']);
+
+        $item = OrderItem::create([
+            'order_id' => $this->order->id,
+            'service_id' => $this->service->id,
+            'technician_id' => $technician->id,
+            'item_tag_code' => 'TAG-JUMP-01',
+            'shoe_brand_model' => 'Nike Pegasus',
+            'shoe_material' => 'Mesh',
+            'status' => 'CHECKED_IN',
+        ]);
+
+        // Coba loncat langsung dari CHECKED_IN ke DELIVERED
+        $response = $this->actingAs($technician)->patch(
+            route('workshop.items.update-status', $item),
+            [
+                'status' => 'DELIVERED',
+            ]
+        );
+
+        $response->assertSessionHasErrors(['status']);
+
+        $item->refresh();
+        $this->assertEquals('CHECKED_IN', $item->status);
+    }
 }

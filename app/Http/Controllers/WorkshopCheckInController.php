@@ -14,6 +14,7 @@ use Illuminate\Http\JsonResponse;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Http\UploadedFile;
+use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Str;
@@ -201,7 +202,7 @@ class WorkshopCheckInController extends Controller
                         'order_item_id' => $orderItem->id,
                         'photo_type' => 'BEFORE',
                         'photo_path' => $path,
-                        'uploaded_by' => auth()->id() ?? $user?->id,
+                        'uploaded_by' => $user?->id ?? Auth::id(),
                     ]);
                 }
 

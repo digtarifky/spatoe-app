@@ -5,8 +5,11 @@ namespace App\Http\Controllers;
 use App\Models\OrderItem;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Auth;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Storage;
 use Illuminate\Validation\Rule;
+use Illuminate\Validation\ValidationException;
 use Inertia\Inertia;
 use Inertia\Response;
 
@@ -26,6 +29,7 @@ class WorkshopController extends Controller
                 'order.customer:id,full_name,phone_number',
                 'service:id,service_name,estimated_hours',
                 'technician:id,name',
+                'statusLogs.user:id,name',
                 'photos' => function ($photoQuery) {
                     $photoQuery->whereIn('photo_type', ['BEFORE', 'DEFECT'])
                         ->select(['id', 'order_item_id', 'photo_type', 'photo_path', 'created_at']);
@@ -129,47 +133,74 @@ class WorkshopController extends Controller
     }
 
     /**
-     * Update order item status from Kanban.
+     * Update order item status from Kanban / Assembly line.
      */
     public function updateStatus(Request $request, OrderItem $item): RedirectResponse
     {
+        $statusValue = $request->input('status') ?? $request->input('new_status');
+        $request->merge([
+            'status' => $statusValue,
+            'new_status' => $statusValue,
+        ]);
+
+        $validStatuses = [
+            'WAITING_PICKUP',
+            'CHECKED_IN',
+            'WASHING',
+            'DRYING',
+            'QC_INSPECTION',
+            'READY_DELIVERY',
+            'DELIVERED',
+            'CANCELLED',
+        ];
+
         $validated = $request->validate([
-            'new_status' => [
-                'required',
-                'string',
-                Rule::in([
-                    'WAITING_PICKUP',
-                    'CHECKED_IN',
-                    'WASHING',
-                    'DRYING',
-                    'QC_INSPECTION',
-                    'READY_DELIVERY',
-                    'DELIVERED',
-                    'CANCELLED',
-                ]),
-            ],
+            'status' => ['required', 'string', Rule::in($validStatuses)],
+            'new_status' => ['required', 'string', Rule::in($validStatuses)],
             'notes' => ['nullable', 'string', 'max:500'],
         ]);
 
         $previousStatus = $item->status;
-        $newStatus = $validated['new_status'];
+        $newStatus = $validated['status'];
+        $technicianId = $request->user()?->id ?? Auth::id();
 
-        $updateData = [
-            'status' => $newStatus,
+        // Validasi transisi status berurutan (mencegah loncatan ilegal)
+        $allowedTransitions = [
+            'WAITING_PICKUP' => ['CHECKED_IN', 'CANCELLED'],
+            'CHECKED_IN' => ['WASHING', 'CANCELLED'],
+            'WASHING' => ['DRYING', 'CHECKED_IN', 'CANCELLED'],
+            'DRYING' => ['QC_INSPECTION', 'WASHING', 'CANCELLED'],
+            'QC_INSPECTION' => ['READY_DELIVERY', 'WASHING', 'DRYING', 'CANCELLED'],
+            'READY_DELIVERY' => ['DELIVERED', 'QC_INSPECTION', 'CANCELLED'],
+            'DELIVERED' => [],
+            'CANCELLED' => [],
         ];
 
-        if ($newStatus === 'READY_DELIVERY') {
-            $updateData['completed_at'] = now();
+        if ($previousStatus !== $newStatus && ! in_array($newStatus, $allowedTransitions[$previousStatus] ?? [])) {
+            throw ValidationException::withMessages([
+                'status' => "Loncatan status tidak diizinkan: Sepatu berstatus {$previousStatus} tidak dapat langsung dialihkan ke {$newStatus}.",
+            ]);
         }
 
-        $item->update($updateData);
+        DB::transaction(function () use ($item, $newStatus, $previousStatus, $technicianId, $validated) {
+            $updateData = [
+                'status' => $newStatus,
+                'technician_id' => $technicianId,
+            ];
 
-        $item->statusLogs()->create([
-            'previous_status' => $previousStatus,
-            'new_status' => $newStatus,
-            'notes' => $validated['notes'] ?? 'Status diperbarui dari Kanban Workshop',
-            'changed_by' => $request->user()?->id,
-        ]);
+            if (in_array($newStatus, ['READY_DELIVERY', 'DELIVERED']) && ! $item->completed_at) {
+                $updateData['completed_at'] = now();
+            }
+
+            $item->update($updateData);
+
+            $item->statusLogs()->create([
+                'previous_status' => $previousStatus,
+                'new_status' => $newStatus,
+                'notes' => $validated['notes'] ?? "Status dialihkan ke {$newStatus} di lantai workshop",
+                'changed_by' => $technicianId,
+            ]);
+        });
 
         return back()->with('success', "Status sepatu {$item->item_tag_code} berhasil diubah ke {$newStatus}.");
     }
