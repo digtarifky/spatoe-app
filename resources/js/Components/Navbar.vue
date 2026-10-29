@@ -1,26 +1,23 @@
 <script setup>
 import { Link, usePage } from '@inertiajs/vue3';
 import { computed } from 'vue';
-import {
-    Wrench,
-    LogOut
-} from 'lucide-vue-next';
+import { LogOut } from 'lucide-vue-next';
 
 const page = usePage();
 const user = computed(() => page.props.auth?.user || null);
 
-const getRoleBadgeClass = (role) => {
-    switch (role) {
+const roleLabel = computed(() => {
+    switch (user.value?.role) {
         case 'admin':
-            return 'bg-purple-50 text-purple-700 border-purple-200';
+            return 'Administrator';
         case 'technician':
-            return 'bg-blue-50 text-blue-700 border-blue-200';
+            return 'Teknisi Workshop';
         case 'courier':
-            return 'bg-amber-50 text-amber-700 border-amber-200';
+            return 'Kurir Antar-Jemput';
         default:
-            return 'bg-neutral-100 text-neutral-700 border-neutral-200';
+            return user.value?.role || 'Staf';
     }
-};
+});
 </script>
 
 <template>
@@ -35,43 +32,26 @@ const getRoleBadgeClass = (role) => {
 
             <!-- Right Area: Only Visible When User is Authenticated -->
             <div v-if="user" class="flex items-center gap-3">
-                <!-- Workshop Navigation Link -->
-                <Link
-                    :href="route('workshop.index')"
-                    class="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold transition-colors"
-                    :class="route().current('workshop.*')
-                        ? 'bg-[#6B0B23]/10 text-[#6B0B23] font-bold'
-                        : 'text-neutral-600 hover:text-neutral-900 hover:bg-neutral-100'"
-                >
-                    <Wrench class="w-3.5 h-3.5" />
-                    <span>Workshop Floor</span>
-                </Link>
-
-                <!-- User Profile & Role Info -->
-                <div class="hidden sm:flex flex-col items-end">
-                    <div class="flex items-center gap-1.5">
-                        <span class="text-xs font-bold text-neutral-800">{{ user.name }}</span>
-                        <span
-                            v-if="user.role"
-                            class="rounded-full border px-2 py-0.5 text-[10px] font-extrabold uppercase tracking-wider"
-                            :class="getRoleBadgeClass(user.role)"
-                        >
-                            {{ user.role }}
-                        </span>
-                    </div>
-                    <span class="text-[10px] text-neutral-400 font-mono">{{ user.email }}</span>
+                <!-- User Name & Role Info -->
+                <div class="flex flex-col items-end leading-tight">
+                    <span class="text-xs sm:text-sm font-bold text-neutral-900">
+                        {{ user.name }}
+                    </span>
+                    <span class="text-[10px] sm:text-[11px] font-semibold text-[#6B0B23]">
+                        {{ roleLabel }}
+                    </span>
                 </div>
 
-                <!-- Logout Button -->
+                <!-- Tombol Logout (Hanya Icon LogOut) -->
                 <Link
                     :href="route('logout')"
                     method="post"
                     as="button"
-                    class="flex items-center gap-1.5 rounded-xl border border-neutral-200 bg-neutral-50 px-3 py-1.5 text-xs font-semibold text-neutral-700 transition hover:bg-rose-50 hover:text-rose-700 hover:border-rose-200"
+                    class="flex items-center justify-center p-2 rounded-xl text-neutral-500 hover:text-rose-600 hover:bg-rose-50 border border-neutral-200 bg-neutral-50 transition-colors"
                     title="Keluar dari akun"
+                    aria-label="Logout"
                 >
-                    <LogOut class="w-3.5 h-3.5" />
-                    <span class="hidden sm:inline">Logout</span>
+                    <LogOut class="w-4 h-4" />
                 </Link>
             </div>
         </div>
