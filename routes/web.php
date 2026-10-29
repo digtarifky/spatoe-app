@@ -26,6 +26,7 @@ Route::middleware(['auth', 'verified'])->group(function () {
     // Workshop Floor (Kanban Board)
     Route::get('/workshop', [WorkshopController::class, 'index'])->name('workshop.index');
     Route::patch('/workshop/items/{item}/status', [WorkshopController::class, 'updateStatus'])->name('workshop.items.update-status');
+    Route::post('/workshop/station-assignments', [WorkshopController::class, 'updateStationAssignments'])->name('workshop.station-assignments.update');
 
     // Workshop Check-In & Intake Kasir
     Route::get('/workshop/checkin', [WorkshopCheckInController::class, 'create'])->name('workshop.checkin');

@@ -3,6 +3,7 @@
 namespace App\Http\Controllers;
 
 use App\Models\OrderItem;
+use App\Models\User;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
@@ -118,6 +119,26 @@ class WorkshopController extends Controller
         $needsWashing = $formattedItems->where('status', 'CHECKED_IN')->count();
         $urgentCount = $formattedItems->whereIn('sla_status', ['urgent', 'overdue'])->count();
 
+        $user = $request->user();
+        $isAdminOrSupervisor = $user && in_array($user->role, ['admin', 'supervisor']);
+
+        $staffList = [];
+        if ($isAdminOrSupervisor) {
+            $staffList = User::query()
+                ->whereIn('role', ['admin', 'technician'])
+                ->where('is_active', true)
+                ->select(['id', 'name', 'role', 'assigned_station'])
+                ->orderBy('name')
+                ->get()
+                ->map(fn (User $staff) => [
+                    'id' => $staff->id,
+                    'name' => $staff->name,
+                    'role' => $staff->role,
+                    'assigned_station' => $staff->assigned_station ?? 'ALL',
+                ])
+                ->all();
+        }
+
         return Inertia::render('Workshop/Index', [
             'items' => $formattedItems,
             'grouped_items' => $groupedItems,
@@ -129,6 +150,8 @@ class WorkshopController extends Controller
             'filters' => [
                 'search' => $search,
             ],
+            'staffList' => $staffList,
+            'staff_list' => $staffList,
         ]);
     }
 
@@ -203,5 +226,40 @@ class WorkshopController extends Controller
         });
 
         return back()->with('success', "Status sepatu {$item->item_tag_code} berhasil diubah ke {$newStatus}.");
+    }
+
+    /**
+     * Update weekly station assignments for workshop staff (admin/supervisor only).
+     */
+    public function updateStationAssignments(Request $request): RedirectResponse
+    {
+        $user = $request->user();
+        if (! $user || ! in_array($user->role, ['admin', 'supervisor'])) {
+            abort(403, 'Hanya administrator atau supervisor yang dapat mengatur penugasan stasiun staf.');
+        }
+
+        $validated = $request->validate([
+            'assignments' => ['required', 'array', 'min:1'],
+            'assignments.*.id' => ['required', 'integer', 'exists:users,id'],
+            'assignments.*.assigned_station' => [
+                'required',
+                'string',
+                Rule::in(['ALL', 'WASHING', 'DRYING', 'QC_INSPECTION', 'READY_DELIVERY']),
+            ],
+        ], [
+            'assignments.required' => 'Daftar penugasan staf wajib dikirimkan.',
+            'assignments.*.id.exists' => 'Data staf tidak ditemukan.',
+            'assignments.*.assigned_station.in' => 'Pilihan stasiun tugas tidak valid.',
+        ]);
+
+        DB::transaction(function () use ($validated) {
+            foreach ($validated['assignments'] as $assignment) {
+                User::where('id', $assignment['id'])->update([
+                    'assigned_station' => $assignment['assigned_station'],
+                ]);
+            }
+        });
+
+        return back()->with('success', 'Penugasan stasiun staf mingguan berhasil diperbarui.');
     }
 }

@@ -3,6 +3,7 @@ import { ref, computed } from 'vue';
 import { Head, router, Link, usePage } from '@inertiajs/vue3';
 import AuthenticatedLayout from '@/Layouts/AuthenticatedLayout.vue';
 import ThermalPrintModal from '@/Components/ThermalPrintModal.vue';
+import StationAssignmentModal from '@/Components/StationAssignmentModal.vue';
 import {
     LayoutGrid,
     Printer,
@@ -20,6 +21,7 @@ import {
     RotateCcw,
     X,
     User,
+    Users,
     Check,
     Lock,
 } from 'lucide-vue-next';
@@ -53,11 +55,19 @@ const props = defineProps({
             search: '',
         }),
     },
+    staffList: {
+        type: Array,
+        default: () => [],
+    },
+    staff_list: {
+        type: Array,
+        default: () => [],
+    },
 });
 
 const page = usePage();
 const currentUser = computed(() => page.props.auth?.user || {});
-const isAdmin = computed(() => currentUser.value?.role === 'admin');
+const isAdmin = computed(() => ['admin', 'supervisor'].includes(currentUser.value?.role));
 
 const searchQuery = ref(props.filters.search || '');
 const updatingItemId = ref(null);
@@ -65,44 +75,50 @@ const selectedDefectItem = ref(null);
 const selectedQcItem = ref(null);
 const printModalOpen = ref(false);
 const printOrder = ref(null);
+const stationModalOpen = ref(false);
 const activeTab = ref('all'); // 'all' | 'wash' | 'dry' | 'qc' | 'ready'
 
-// Workstation Guard: Penugasan Stasiun Petugas
-const activeDutyStation = ref(
-    currentUser.value?.active_station ||
-    localStorage.getItem('spatoe_active_duty_station') ||
-    (isAdmin.value ? 'all' : 'wash')
-);
-
-const setDutyStation = (stationKey) => {
-    activeDutyStation.value = stationKey;
-    localStorage.setItem('spatoe_active_duty_station', stationKey);
-};
-
-// Pemetaan Status Item vs Stasiun Tugas
-const getStationForStatus = (statusOrKey) => {
-    switch (statusOrKey) {
-        case 'CHECKED_IN':
-        case 'WASHING':
-            return 'wash';
-        case 'DRYING':
-            return 'dry';
-        case 'QC_INSPECTION':
-            return 'qc';
-        case 'READY_DELIVERY':
-            return 'ready';
-        default:
-            return null;
-    }
-};
-
-// Cek hak akses aksi tombol pos
-const isActionPermitted = (columnKey, item = null) => {
+// Helper penugasan stasiun: Cek apakah teknisi berhak mengeksekusi aksi di stasiun ini
+const canOperateStation = (stationKey) => {
     if (isAdmin.value) return true;
-    if (activeDutyStation.value === 'all') return true;
+    const userStation = currentUser.value?.assigned_station || 'ALL';
+    if (userStation === 'ALL') return true;
 
-    const requiredStation = getStationForStatus(columnKey || item?.status);
-    return activeDutyStation.value === requiredStation;
+    const normalizedKey = (stationKey || '').toUpperCase();
+    if (normalizedKey === 'CHECKED_IN' || normalizedKey === 'WASHING' || normalizedKey === 'WASH') {
+        return userStation === 'WASHING';
+    }
+    if (normalizedKey === 'DRYING' || normalizedKey === 'DRY') {
+        return userStation === 'DRYING';
+    }
+    if (normalizedKey === 'QC_INSPECTION' || normalizedKey === 'QC') {
+        return userStation === 'QC_INSPECTION';
+    }
+    if (normalizedKey === 'READY_DELIVERY' || normalizedKey === 'READY') {
+        return userStation === 'READY_DELIVERY';
+    }
+    return userStation === normalizedKey;
+};
+
+// Aliaskan isActionPermitted ke canOperateStation untuk kompatibilitas
+const isActionPermitted = (columnKey, item = null) => {
+    return canOperateStation(columnKey || item?.status);
+};
+
+const getStationBadgeLabel = (station) => {
+    switch (station) {
+        case 'WASHING':
+            return '🧼 Pos Cuci & Sikat';
+        case 'DRYING':
+            return '💨 Pos Pengeringan';
+        case 'QC_INSPECTION':
+            return '🛡️ Pos QC';
+        case 'READY_DELIVERY':
+            return '🚚 Siap Antar';
+        case 'ALL':
+        default:
+            return '🔄 Semua Pos (Rotasi Bebas)';
+    }
 };
 
 // Tab Filter Stasiun Kerja (Assembly Line)
@@ -350,25 +366,17 @@ const stationDetails = computed(() => {
 
                         <!-- Mini Metrics Banner & Workstation Duty Indicator -->
                         <div class="flex flex-wrap items-center gap-3">
-                            <!-- Workstation Guard Duty Selector -->
+                            <!-- Workstation Duty Indicator -->
                             <div class="flex items-center gap-2 rounded-xl border border-neutral-200 bg-neutral-50 px-3 py-2 text-xs shadow-2xs">
                                 <span class="text-[11px] font-bold text-neutral-500">Tugas Anda:</span>
-                                <select
-                                    :value="activeDutyStation"
-                                    @change="setDutyStation($event.target.value)"
-                                    class="cursor-pointer border-none bg-transparent p-0 pr-6 text-xs font-bold text-neutral-900 focus:ring-0"
-                                >
-                                    <option value="wash">🧼 Pos Cuci</option>
-                                    <option value="dry">💨 Pos Pengeringan</option>
-                                    <option value="qc">🛡️ Pos QC</option>
-                                    <option value="ready">🚚 Siap Antar</option>
-                                    <option v-if="isAdmin" value="all">👑 Semua Pos (Admin)</option>
-                                </select>
+                                <span class="font-extrabold text-neutral-800">
+                                    {{ getStationBadgeLabel(currentUser?.assigned_station) }}
+                                </span>
                                 <span
                                     v-if="isAdmin"
                                     class="rounded bg-[#6B0B23]/10 px-2 py-0.5 text-[10px] font-extrabold uppercase tracking-wider text-[#6B0B23]"
                                 >
-                                    Admin
+                                    {{ currentUser?.role === 'supervisor' ? 'Supervisor' : 'Admin' }}
                                 </span>
                             </div>
 
@@ -424,7 +432,18 @@ const stationDetails = computed(() => {
                             </button>
                         </form>
 
-                        <div class="flex items-center gap-3">
+                        <div class="flex items-center gap-2.5">
+                            <!-- Tombol Atur Shift Staf (Admin & Supervisor Only) -->
+                            <button
+                                v-if="isAdmin"
+                                type="button"
+                                @click="stationModalOpen = true"
+                                class="inline-flex items-center gap-1.5 rounded-xl border border-neutral-300 bg-white px-3.5 py-2 text-xs font-bold text-neutral-700 shadow-xs transition hover:bg-neutral-50 hover:text-neutral-900"
+                            >
+                                <Users class="h-4 w-4 text-[#6B0B23]" />
+                                <span>Atur Shift Staf</span>
+                            </button>
+
                             <Link
                                 :href="route('workshop.checkin')"
                                 class="inline-flex items-center gap-1.5 rounded-xl bg-[#6B0B23] px-3.5 py-2 text-xs font-bold text-white shadow-xs transition hover:bg-[#54081B]"
@@ -603,39 +622,41 @@ const stationDetails = computed(() => {
                                     <template v-if="col.key === 'QC_INSPECTION'">
                                         <button
                                             type="button"
-                                            @click="isActionPermitted(col.key, item) && openQcModal(item)"
-                                            :disabled="updatingItemId === item.id || !isActionPermitted(col.key, item)"
+                                            @click="canOperateStation(col.key) && openQcModal(item)"
+                                            :disabled="updatingItemId === item.id || !canOperateStation(col.key)"
                                             :class="[
                                                 'flex w-full items-center justify-center gap-1.5 rounded-xl py-2 text-xs font-bold shadow-xs transition',
-                                                !isActionPermitted(col.key, item)
+                                                !canOperateStation(col.key)
                                                     ? 'bg-neutral-200 text-neutral-400 cursor-not-allowed opacity-60'
                                                     : 'bg-emerald-700 hover:bg-emerald-800 text-white'
                                             ]"
                                         >
-                                            <ShieldCheck class="h-3.5 w-3.5" />
-                                            <span>Buka Lembar QC</span>
+                                            <Lock v-if="!canOperateStation(col.key)" class="h-3.5 w-3.5" />
+                                            <ShieldCheck v-else class="h-3.5 w-3.5" />
+                                            <span>{{ !canOperateStation(col.key) ? 'Hanya Petugas Pos Terkait' : 'Buka Lembar QC' }}</span>
                                         </button>
                                     </template>
                                     <template v-else-if="col.actionLabel">
                                         <button
                                             type="button"
-                                            @click="isActionPermitted(col.key, item) && updateStatus(item, col.nextStatus)"
-                                            :disabled="updatingItemId === item.id || !isActionPermitted(col.key, item)"
+                                            @click="canOperateStation(col.key) && updateStatus(item, col.nextStatus)"
+                                            :disabled="updatingItemId === item.id || !canOperateStation(col.key)"
                                             :class="[
                                                 'flex w-full items-center justify-center gap-1.5 rounded-xl py-2 text-xs font-bold shadow-xs transition',
-                                                !isActionPermitted(col.key, item)
+                                                !canOperateStation(col.key)
                                                     ? 'bg-neutral-200 text-neutral-400 cursor-not-allowed opacity-60'
                                                     : col.btnColor
                                             ]"
                                         >
-                                            <component :is="col.actionIcon" class="h-3.5 w-3.5" />
-                                            <span>{{ updatingItemId === item.id ? 'Memproses...' : col.actionLabel }}</span>
+                                            <Lock v-if="!canOperateStation(col.key)" class="h-3.5 w-3.5" />
+                                            <component v-else :is="col.actionIcon" class="h-3.5 w-3.5" />
+                                            <span>{{ !canOperateStation(col.key) ? 'Hanya Petugas Pos Terkait' : (updatingItemId === item.id ? 'Memproses...' : col.actionLabel) }}</span>
                                         </button>
                                     </template>
 
                                     <!-- Label Mode Pantau jika di luar jobdesk -->
                                     <div
-                                        v-if="!isActionPermitted(col.key, item)"
+                                        v-if="!canOperateStation(col.key)"
                                         class="mt-1.5 flex items-center justify-center gap-1 text-[10px] text-amber-700 bg-amber-50 rounded-lg py-1 px-2 border border-amber-200/60 text-center"
                                     >
                                         <Lock class="w-3 h-3 text-amber-600 flex-shrink-0" />
@@ -782,22 +803,23 @@ const stationDetails = computed(() => {
                                 <div class="mt-3.5 border-t border-neutral-100 pt-3">
                                     <button
                                         type="button"
-                                        @click="isActionPermitted(col.key, item) && updateStatus(item, col.nextStatus)"
-                                        :disabled="updatingItemId === item.id || !isActionPermitted(col.key, item)"
+                                        @click="canOperateStation(col.key) && updateStatus(item, col.nextStatus)"
+                                        :disabled="updatingItemId === item.id || !canOperateStation(col.key)"
                                         :class="[
                                             'flex w-full items-center justify-center gap-2 rounded-xl py-2.5 text-xs font-bold shadow-xs transition',
-                                            !isActionPermitted(col.key, item)
+                                            !canOperateStation(col.key)
                                                 ? 'bg-neutral-200 text-neutral-400 cursor-not-allowed opacity-60'
                                                 : col.btnColor
                                         ]"
                                     >
-                                        <component :is="col.actionIcon" class="h-4 w-4" />
-                                        <span>{{ updatingItemId === item.id ? 'Memproses...' : col.actionLabel }}</span>
+                                        <Lock v-if="!canOperateStation(col.key)" class="h-4 w-4" />
+                                        <component v-else :is="col.actionIcon" class="h-4 w-4" />
+                                        <span>{{ !canOperateStation(col.key) ? 'Hanya Petugas Pos Terkait' : (updatingItemId === item.id ? 'Memproses...' : col.actionLabel) }}</span>
                                     </button>
 
                                     <!-- Label Mode Pantau jika bukan petugas pos cuci -->
                                     <div
-                                        v-if="!isActionPermitted(col.key, item)"
+                                        v-if="!canOperateStation(col.key)"
                                         class="mt-1.5 flex items-center justify-center gap-1 text-[10px] text-amber-700 bg-amber-50 rounded-lg py-1 px-2 border border-amber-200/60 text-center"
                                     >
                                         <Lock class="w-3 h-3 text-amber-600 flex-shrink-0" />
@@ -935,20 +957,21 @@ const stationDetails = computed(() => {
                             <template v-if="activeTab === 'qc'">
                                 <button
                                     type="button"
-                                    @click="isActionPermitted('QC_INSPECTION', item) && openQcModal(item)"
-                                    :disabled="updatingItemId === item.id || !isActionPermitted('QC_INSPECTION', item)"
+                                    @click="canOperateStation('QC_INSPECTION') && openQcModal(item)"
+                                    :disabled="updatingItemId === item.id || !canOperateStation('QC_INSPECTION')"
                                     :class="[
                                         'flex w-full items-center justify-center gap-2 rounded-xl py-2.5 text-xs font-bold shadow-xs transition',
-                                        !isActionPermitted('QC_INSPECTION', item)
+                                        !canOperateStation('QC_INSPECTION')
                                             ? 'bg-neutral-200 text-neutral-400 cursor-not-allowed opacity-60'
                                             : 'bg-emerald-700 hover:bg-emerald-800 text-white'
                                     ]"
                                 >
-                                    <ShieldCheck class="h-4 w-4" />
-                                    <span>Buka Lembar QC</span>
+                                    <Lock v-if="!canOperateStation('QC_INSPECTION')" class="h-4 w-4" />
+                                    <ShieldCheck v-else class="h-4 w-4" />
+                                    <span>{{ !canOperateStation('QC_INSPECTION') ? 'Hanya Petugas Pos Terkait' : 'Buka Lembar QC' }}</span>
                                 </button>
                                 <div
-                                    v-if="!isActionPermitted('QC_INSPECTION', item)"
+                                    v-if="!canOperateStation('QC_INSPECTION')"
                                     class="mt-1.5 flex items-center justify-center gap-1 text-[10px] text-amber-700 bg-amber-50 rounded-lg py-1 px-2 border border-amber-200/60 text-center"
                                 >
                                     <Lock class="w-3 h-3 text-amber-600 flex-shrink-0" />
@@ -960,20 +983,21 @@ const stationDetails = computed(() => {
                             <template v-else-if="activeTab === 'dry'">
                                 <button
                                     type="button"
-                                    @click="isActionPermitted('DRYING', item) && updateStatus(item, 'QC_INSPECTION')"
-                                    :disabled="updatingItemId === item.id || !isActionPermitted('DRYING', item)"
+                                    @click="canOperateStation('DRYING') && updateStatus(item, 'QC_INSPECTION')"
+                                    :disabled="updatingItemId === item.id || !canOperateStation('DRYING')"
                                     :class="[
                                         'flex w-full items-center justify-center gap-2 rounded-xl py-2.5 text-xs font-bold shadow-xs transition',
-                                        !isActionPermitted('DRYING', item)
+                                        !canOperateStation('DRYING')
                                             ? 'bg-neutral-200 text-neutral-400 cursor-not-allowed opacity-60'
                                             : 'bg-indigo-600 hover:bg-indigo-700 text-white'
                                     ]"
                                 >
-                                    <ShieldCheck class="h-4 w-4" />
-                                    <span>{{ updatingItemId === item.id ? 'Memproses...' : 'Kirim ke Pos QC' }}</span>
+                                    <Lock v-if="!canOperateStation('DRYING')" class="h-4 w-4" />
+                                    <ShieldCheck v-else class="h-4 w-4" />
+                                    <span>{{ !canOperateStation('DRYING') ? 'Hanya Petugas Pos Terkait' : (updatingItemId === item.id ? 'Memproses...' : 'Kirim ke Pos QC') }}</span>
                                 </button>
                                 <div
-                                    v-if="!isActionPermitted('DRYING', item)"
+                                    v-if="!canOperateStation('DRYING')"
                                     class="mt-1.5 flex items-center justify-center gap-1 text-[10px] text-amber-700 bg-amber-50 rounded-lg py-1 px-2 border border-amber-200/60 text-center"
                                 >
                                     <Lock class="w-3 h-3 text-amber-600 flex-shrink-0" />
@@ -985,20 +1009,21 @@ const stationDetails = computed(() => {
                             <template v-else-if="activeTab === 'ready'">
                                 <button
                                     type="button"
-                                    @click="isActionPermitted('READY_DELIVERY', item) && updateStatus(item, 'DELIVERED', 'Pesanan selesai & diserahkan')"
-                                    :disabled="updatingItemId === item.id || !isActionPermitted('READY_DELIVERY', item)"
+                                    @click="canOperateStation('READY_DELIVERY') && updateStatus(item, 'DELIVERED', 'Pesanan selesai & diserahkan')"
+                                    :disabled="updatingItemId === item.id || !canOperateStation('READY_DELIVERY')"
                                     :class="[
                                         'flex w-full items-center justify-center gap-2 rounded-xl py-2.5 text-xs font-bold shadow-xs transition',
-                                        !isActionPermitted('READY_DELIVERY', item)
+                                        !canOperateStation('READY_DELIVERY')
                                             ? 'bg-neutral-200 text-neutral-400 cursor-not-allowed opacity-60'
                                             : 'bg-rose-700 hover:bg-rose-800 text-white'
                                     ]"
                                 >
-                                    <CheckCircle2 class="h-4 w-4" />
-                                    <span>{{ updatingItemId === item.id ? 'Memproses...' : 'Selesaikan Pesanan' }}</span>
+                                    <Lock v-if="!canOperateStation('READY_DELIVERY')" class="h-4 w-4" />
+                                    <CheckCircle2 v-else class="h-4 w-4" />
+                                    <span>{{ !canOperateStation('READY_DELIVERY') ? 'Hanya Petugas Pos Terkait' : (updatingItemId === item.id ? 'Memproses...' : 'Selesaikan Pesanan') }}</span>
                                 </button>
                                 <div
-                                    v-if="!isActionPermitted('READY_DELIVERY', item)"
+                                    v-if="!canOperateStation('READY_DELIVERY')"
                                     class="mt-1.5 flex items-center justify-center gap-1 text-[10px] text-amber-700 bg-amber-50 rounded-lg py-1 px-2 border border-amber-200/60 text-center"
                                 >
                                     <Lock class="w-3 h-3 text-amber-600 flex-shrink-0" />
@@ -1146,38 +1171,40 @@ const stationDetails = computed(() => {
                     <!-- Reject / Return to Wash -->
                     <button
                         type="button"
-                        @click="isActionPermitted('QC_INSPECTION', selectedQcItem) && updateStatus(selectedQcItem, 'WASHING', 'QC Gagal: Sepatu dikembalikan ke tahap cuci ulang')"
-                        :disabled="updatingItemId === selectedQcItem.id || !isActionPermitted('QC_INSPECTION', selectedQcItem)"
+                        @click="canOperateStation('QC_INSPECTION') && updateStatus(selectedQcItem, 'WASHING', 'QC Gagal: Sepatu dikembalikan ke tahap cuci ulang')"
+                        :disabled="updatingItemId === selectedQcItem.id || !canOperateStation('QC_INSPECTION')"
                         :class="[
                             'flex flex-1 items-center justify-center gap-1.5 rounded-xl border py-2.5 text-xs font-bold transition',
-                            !isActionPermitted('QC_INSPECTION', selectedQcItem)
+                            !canOperateStation('QC_INSPECTION')
                                 ? 'border-neutral-300 bg-neutral-200 text-neutral-400 cursor-not-allowed opacity-60'
                                 : 'border-rose-300 bg-rose-50 text-rose-700 hover:bg-rose-100'
                         ]"
                     >
-                        <RotateCcw class="h-4 w-4" />
-                        <span>Tolak & Cuci Ulang</span>
+                        <Lock v-if="!canOperateStation('QC_INSPECTION')" class="h-4 w-4" />
+                        <RotateCcw v-else class="h-4 w-4" />
+                        <span>{{ !canOperateStation('QC_INSPECTION') ? 'Hanya Petugas Pos Terkait' : 'Tolak & Cuci Ulang' }}</span>
                     </button>
 
                     <!-- Pass QC & Set Ready -->
                     <button
                         type="button"
-                        @click="isActionPermitted('QC_INSPECTION', selectedQcItem) && updateStatus(selectedQcItem, 'READY_DELIVERY', 'QC Passed: Sepatu siap diantar/diambil')"
-                        :disabled="updatingItemId === selectedQcItem.id || !isActionPermitted('QC_INSPECTION', selectedQcItem)"
+                        @click="canOperateStation('QC_INSPECTION') && updateStatus(selectedQcItem, 'READY_DELIVERY', 'QC Passed: Sepatu siap diantar/diambil')"
+                        :disabled="updatingItemId === selectedQcItem.id || !canOperateStation('QC_INSPECTION')"
                         :class="[
                             'flex flex-1 items-center justify-center gap-1.5 rounded-xl py-2.5 text-xs font-bold text-white transition',
-                            !isActionPermitted('QC_INSPECTION', selectedQcItem)
+                            !canOperateStation('QC_INSPECTION')
                                 ? 'bg-neutral-300 text-neutral-500 cursor-not-allowed opacity-60'
                                 : 'bg-emerald-700 hover:bg-emerald-800'
                         ]"
                     >
-                        <Check class="h-4 w-4" />
-                        <span>Lulus QC & Siap Antar</span>
+                        <Lock v-if="!canOperateStation('QC_INSPECTION')" class="h-4 w-4" />
+                        <Check v-else class="h-4 w-4" />
+                        <span>{{ !canOperateStation('QC_INSPECTION') ? 'Hanya Petugas Pos Terkait' : 'Lulus QC & Siap Antar' }}</span>
                     </button>
                 </div>
 
                 <div
-                    v-if="!isActionPermitted('QC_INSPECTION', selectedQcItem)"
+                    v-if="!canOperateStation('QC_INSPECTION')"
                     class="mt-2.5 text-center text-xs text-amber-700 bg-amber-50 p-2 rounded-xl border border-amber-200/60 flex items-center justify-center gap-1.5"
                 >
                     <Lock class="w-3.5 h-3.5 text-amber-600 flex-shrink-0" />
@@ -1191,6 +1218,13 @@ const stationDetails = computed(() => {
             :is-open="printModalOpen"
             :order="printOrder"
             @close="printModalOpen = false"
+        />
+
+        <!-- Modal Penugasan Stasiun Staf Mingguan (Admin Only) -->
+        <StationAssignmentModal
+            :is-open="stationModalOpen"
+            :staff-list="staffList?.length ? staffList : (staff_list || [])"
+            @close="stationModalOpen = false"
         />
     </AuthenticatedLayout>
 </template>

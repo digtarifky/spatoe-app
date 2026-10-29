@@ -355,4 +355,104 @@ class WorkshopTest extends TestCase
         $item->refresh();
         $this->assertEquals('CHECKED_IN', $item->status);
     }
+
+    public function test_admin_receives_staff_list_in_workshop_index(): void
+    {
+        $admin = User::factory()->create(['role' => 'admin']);
+        $tech = User::factory()->create([
+            'role' => 'technician',
+            'is_active' => true,
+            'assigned_station' => 'WASHING',
+        ]);
+
+        $response = $this->actingAs($admin)->get(route('workshop.index'));
+
+        $response->assertOk();
+        $response->assertInertia(fn (Assert $page) => $page
+            ->component('Workshop/Index')
+            ->has('staffList')
+            ->where('staffList', fn ($list) => collect($list)->pluck('id')->contains($tech->id))
+        );
+    }
+
+    public function test_technician_does_not_receive_staff_list_in_workshop_index(): void
+    {
+        $tech = User::factory()->create(['role' => 'technician']);
+
+        $response = $this->actingAs($tech)->get(route('workshop.index'));
+
+        $response->assertOk();
+        $response->assertInertia(fn (Assert $page) => $page
+            ->component('Workshop/Index')
+            ->where('staffList', [])
+        );
+    }
+
+    public function test_admin_can_update_weekly_station_assignments(): void
+    {
+        $admin = User::factory()->create(['role' => 'admin']);
+        $tech1 = User::factory()->create([
+            'role' => 'technician',
+            'assigned_station' => 'ALL',
+        ]);
+        $tech2 = User::factory()->create([
+            'role' => 'technician',
+            'assigned_station' => 'ALL',
+        ]);
+
+        $payload = [
+            'assignments' => [
+                ['id' => $tech1->id, 'assigned_station' => 'WASHING'],
+                ['id' => $tech2->id, 'assigned_station' => 'DRYING'],
+            ],
+        ];
+
+        $response = $this->actingAs($admin)->post(
+            route('workshop.station-assignments.update'),
+            $payload
+        );
+
+        $response->assertSessionHasNoErrors();
+        $response->assertRedirect();
+
+        $this->assertEquals('WASHING', $tech1->fresh()->assigned_station);
+        $this->assertEquals('DRYING', $tech2->fresh()->assigned_station);
+    }
+
+    public function test_non_admin_cannot_update_station_assignments(): void
+    {
+        $tech = User::factory()->create(['role' => 'technician']);
+
+        $payload = [
+            'assignments' => [
+                ['id' => $tech->id, 'assigned_station' => 'DRYING'],
+            ],
+        ];
+
+        $response = $this->actingAs($tech)->post(
+            route('workshop.station-assignments.update'),
+            $payload
+        );
+
+        $response->assertForbidden();
+    }
+
+    public function test_update_station_assignments_validates_station_enum(): void
+    {
+        $admin = User::factory()->create(['role' => 'admin']);
+        $tech = User::factory()->create(['role' => 'technician']);
+
+        $payload = [
+            'assignments' => [
+                ['id' => $tech->id, 'assigned_station' => 'INVALID_STATION'],
+            ],
+        ];
+
+        $response = $this->actingAs($admin)->post(
+            route('workshop.station-assignments.update'),
+            $payload
+        );
+
+        $response->assertSessionHasErrors(['assignments.0.assigned_station']);
+    }
 }
